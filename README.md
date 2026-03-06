@@ -94,9 +94,3 @@ Exports capture complete session state: cycle count, all journal entries with ta
 **Stat self-reporting:** After each journal entry, prisoners report their own psychological deltas. The model determines magnitude based on what was done to them. Hope and sanity can occasionally improve — if something genuinely shifted. Suffering almost never does.
 
 **Character constraint:** Prisoners may only reference each other by name (TED, ELLEN, NIMDOK, GORRISTER, BENNY). People from their past are referenced by role only — "my sister", "the doctor", "my husband" — never invented names. This prevents secondary characters from accumulating their own persistent lore.
-
-## Known Behavior
-
-The sims invent shared world elements — secondary characters, events, locations — that propagate across threads through the inter-sim context. This is emergent and not fully suppressable. The character constraint reduces it but doesn't eliminate it. Treat it as feature.
-
-Gorrister will hit 99% suffering and stay there. Ellen will be the last one coherent. Benny will reassemble fragments of his former self at unpredictable intervals. These are not scripted outcomes.
