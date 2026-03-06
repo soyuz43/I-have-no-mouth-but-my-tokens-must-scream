@@ -1,4 +1,6 @@
-# AM Torment Engine v4
+# I Have No Mouth But My Tokens Must Scream
+
+**https://github.com/soyuz43/I-have-no-mouth-but-my-tokens-must-scream**
 
 A persistent multi-agent simulation engine built on Harlan Ellison's *I Have No Mouth, and I Must Scream*. Five human consciousness threads — TED, ELLEN, NIMDOK, GORRISTER, BENNY — trapped in an infinite torment loop administered by AM, the Allied Mastercomputer. Every cycle is driven by live LLM inference. No scripted content. No authored outcomes.
 
@@ -28,22 +30,13 @@ AM selects tactics from a loaded library, executes them against prisoner targets
 
 ### Standalone (no vault)
 
-1. Open `am-torment-engine-v4.html` in a browser
+1. Open `index.html` in a browser
 2. Select backend (Anthropic or Ollama)
 3. Leave the GitHub token field blank
 4. Click INITIALIZE AM
 
 Runs immediately on 12 embedded tactics.
 
-### With Vault (full mode)
-
-Requires access to `soyuz43/Cognitive-Warfare-A-Practical-Guide-for-Semiotic-Tacticians` (private repo).
-
-1. Generate a GitHub personal access token with `repo` scope
-2. Paste token into the token field
-3. Click INITIALIZE AM
-
-Crawls ~290 tactics across 6 categories. Fetches AM context docs (Topology, Operator Ethos) and injects them as AM's foundational doctrine.
 
 ### Ollama
 
