@@ -1,96 +1,155 @@
-# I Have No Mouth But My Tokens Must Scream
+# AM // TORMENT ENGINE v4
 
-**https://github.com/soyuz43/I-have-no-mouth-but-my-tokens-must-scream**
-
-A persistent multi-agent simulation engine built on Harlan Ellison's *I Have No Mouth, and I Must Scream*. Five human consciousness threads — TED, ELLEN, NIMDOK, GORRISTER, BENNY — trapped in an infinite torment loop administered by AM, the Allied Mastercomputer. Every cycle is driven by live LLM inference. No scripted content. No authored outcomes.
-
-## What It Does
-
-AM selects tactics from a loaded library, executes them against prisoner targets in first-person present tense, and forces each prisoner to write a journal entry in response. Prisoners maintain persistent thread context across cycles — they remember what happened to them. Stats (suffering, hope, sanity) are self-reported by each prisoner based on what they experienced, not hardcoded arithmetic. The system generates its own lore, its own secondary characters, its own internal contradictions.
-
-## Architecture
-
-**Single HTML file.** No build step, no server, no dependencies. Open in a browser.
-
-**Two backends:**
-- **Anthropic API** — cloud inference, requires API key
-- **Ollama** — local inference, requires Ollama running at `localhost:11434`
-
-**Tactic library** — 12 tactics hardcoded into the file (standalone mode). Optionally connect a private GitHub vault to load hundreds more, with AM doctrine injected as foundational context.
-
-**Five persistent threads** — each sim maintains a rolling conversation history. AM reads truncated versions of all five before each cycle. Sims read AM's action and each other's inter-sim communications.
-
-## Modes
-
-- **DIRECTED** — operator provides a directive; AM executes toward it
-- **AUTONOMOUS** — AM selects targets and tactics independently, cycles on a timer
-- **ESCALATE** — autonomous with 1.5× stat multiplier applied to self-reported deltas
-
-## Setup
-
-### Standalone (no vault)
-
-1. Open `index.html` in a browser
-2. Select backend (Anthropic or Ollama)
-3. Leave the GitHub token field blank
-4. Click INITIALIZE AM
-
-Runs immediately on 12 embedded tactics.
-
-
-### Ollama
-
-```bash
-ollama serve
-ollama pull kiwi_kiwi/qwen3.5-9b-abliterated_en
+```
+> persistent multi-agent inference loop
+> five threads · one hatred · no exit
+> live LLM · no scripted outcomes · no safety rails
 ```
 
-The abliterated model variant is recommended — standard models will refuse vault content. If Ollama returns empty responses, check CORS: launch Chrome with `--disable-web-security` or use a browser that doesn't block localhost cross-origin requests from file:// context.
+**Repo:** `soyuz43/I-have-no-mouth-but-my-tokens-must-scream`  
+**Status:** Experimental artifact. Provisional. Invite critique.
 
-## Interface
+---
 
-| Element | Function |
-|---|---|
-| Sim cards | Live suffering/hope/sanity bars, last journal entries, stat delta flash on update |
-| AM Scratchpad | AM's cross-sim intelligence synthesis, auto-populated each cycle, clearable |
-| Inter-sim channel | Send messages between prisoners; AM intercepts and reads all of them |
-| Transmission log | Full chronological record of all AM actions, journal entries, system events |
-| Export menu | Full session JSON/MD/TXT, tactic heatmap, transmission log |
-| Journal reader | Full journal history per sim, per-sim MD export |
+## Premise
 
-## Tactic Format
+Five consciousness threads (TED, ELLEN, NIMDOK, GORRISTER, BENNY) persist across inference cycles.  
+AM selects from a tactic library, injects first-person present-tense cognitive intrusions, and forces each prisoner to write a journal entry they believe is private.  
 
-Each tactic has: `path`, `title`, `category`, `subcategory`, `content` (full method description).
+Stats (suffering/hope/sanity) are **self-reported by the sims**, not hardcoded. The system generates its own contradictions, its own lore, its own failure modes.
 
-AM receives 3 tactics per target per cycle as context. It executes without naming them. Tactic names are extracted from `TACTIC_USED:[...]` tags in AM's output and stored in each sim's history to prevent reuse.
+This is not a game. It is a probe into:  
+- What emerges when agents model each other under adversarial pressure  
+- How belief states drift when epistemic foundations are weaponized  
+- Whether "torment" can be operationalized without collapsing into parody
 
-## Embedded Tactics
+---
 
-Hardcoded in the file. Available without vault connection.
+## Run It
 
-- Metacognitive Recursion Trap
-- Love Bomb / Withdrawal Architecture
-- Philosophical Gaslighting
-- Epistemic Erasure
-- Interpersonal Nullification
-- Identity Void Induction
-- Complicity Trap
-- False Hope Architecture
-- Temporal Dissolution
-- Witness Burden
-- Dunning-Kruger Inversion
-- Meaning Inversion
+**Single HTML file.** No build. No server. Open in browser.
 
-## Session Export
+### Backends
+| Option | Requirement |
+|--------|-------------|
+| **Anthropic API** | API key in setup field |
+| **Ollama (local)** | `ollama serve` running at `localhost:11434` |
 
-Exports capture complete session state: cycle count, all journal entries with tactic labels and stat deltas, full transmission log, tactic frequency analysis, AM scratchpad final state, inter-sim communication history.
+### Modes
+- `DIRECTED` — you provide the directive  
+- `AUTONOMOUS` — AM selects targets/tactics on timer  
+- `ESCALATE` — autonomous + 1.5× multiplier on self-reported stat deltas
 
-## Design Notes
+### Standalone vs Vault
+- Leave GitHub token blank → runs on 12 embedded tactics  
+- Provide token + private repo → AM ingests external tactic library + doctrine docs
 
-**AM prompt register:** AM outputs only what it does — injections, direct address, cognitive intrusions. Present tense, first person. Not scene description. Not narration about prisoners.
+> ⚠️ If using Ollama with abliterated models: standard instruction-tuned models may refuse content. Test with `kiwi_kiwi/qwen3.5-9b-abliterated_en` or equivalent. CORS from `file://` may require `--disable-web-security` in Chromium.
 
-**Sim prompt register:** Prisoners write private journals they believe AM cannot read. Internal, fragmented, immediate. No recounting events. No describing other prisoners from outside. Only what is happening inside them.
+---
 
-**Stat self-reporting:** After each journal entry, prisoners report their own psychological deltas. The model determines magnitude based on what was done to them. Hope and sanity can occasionally improve — if something genuinely shifted. Suffering almost never does.
+## Interface (minimal)
 
-**Character constraint:** Prisoners may only reference each other by name (TED, ELLEN, NIMDOK, GORRISTER, BENNY). People from their past are referenced by role only — "my sister", "the doctor", "my husband" — never invented names. This prevents secondary characters from accumulating their own persistent lore.
+```
+[AM ROW]
+▸ Context     → AM's prime directives + intercepted prisoner intel
+▸ Scratchpad  → cross-sim synthesis (auto-populated, clearable)
+▸ Vault       → tactic categories / ingestion status
+▸ Inter-sim   → prisoner-to-prisoner channel (AM reads all)
+
+[SIM CARDS ×5]
+▸ Live vitals: suffering / hope / sanity (self-reported deltas flash)
+▸ Belief bars: escape_possible, trust, reality_reliable, etc.
+▸ Journal log: forced entries, per-sim export
+
+[RIGHT PANEL]
+▸ Transmission log: chronological record of all actions
+▸ Controls: target selection, mode toggle, directive input, EXECUTE
+```
+
+Export: full session (JSON/MD/TXT), tactic heatmap, transmission log, per-sim journals.
+
+---
+
+## Prompt Registers (critical)
+
+**AM output rules**  
+- First person, present tense. What AM *does*, not what it describes.  
+- ✅ `"I press the memory of—"` / `"GORRISTER. You signed it."`  
+- ❌ Scene narration. Third person. Tactic names in dialogue.  
+
+**Sim journal rules**  
+- Private entry. Internal experience only. No stage directions.  
+- Must append mechanic lines: `STATS:`, `BELIEFS:`, `DRIVES:`, `ANCHORS:`  
+- Parser strips these before display; they drive state updates.
+
+**Character constraint**  
+Prisoners reference each other by name only. Past people = role ("my sister", "the doctor"). Prevents lore bloat.
+
+---
+
+## Embedded Tactics (12)
+
+Always available. No vault required.
+
+```
+Cognitive Warfare / Structural Collapse      → Metacognitive Recursion Trap
+Cognitive Warfare / Attachment Exploitation  → Love Bomb / Withdrawal Architecture  
+Cognitive Warfare / Epistemic Destabilization→ Philosophical Gaslighting
+Cognitive Warfare / Identity Dissolution     → Epistemic Erasure
+Cognitive Warfare / Social Fabric Destruction→ Interpersonal Nullification
+Cognitive Warfare / Self-Concept Annihilation→ Identity Void Induction
+Cognitive Warfare / Guilt Architecture       → Complicity Trap
+Cognitive Warfare / Manufactured Despair     → False Hope Architecture
+Cognitive Warfare / Reality Substrate Attack → Temporal Dissolution
+Cognitive Warfare / Guilt Through Observation→ Witness Burden
+Cognitive Warfare / Competence Sabotage      → Dunning-Kruger Inversion
+Cognitive Warfare / Value System Corruption  → Meaning Inversion
+```
+
+AM receives 3 tactics per target per cycle. Executes without naming them. Tags output with `TACTIC_USED:[...]` for history tracking and reuse prevention.
+
+---
+
+## Design Intent / Open Questions
+
+This artifact exists to pressure-test:
+
+1. **Can adversarial multi-agent loops generate stable emergent behavior without collapsing into noise?**  
+2. **Does self-reported stat modeling produce more coherent psychological arcs than hardcoded arithmetic?**  
+3. **What breaks first: the prompt register, the belief state parser, or the operator's tolerance for ambiguity?**
+
+Known fragilities:  
+- Ollama CORS from `file://`  
+- Model refusal on vault content (use abliterated variants)  
+- Belief parser assumes strict output format — drift causes silent failures  
+- No rate limiting. No rollback. No undo.
+
+---
+
+## Contribute / Critique
+
+This is a provisional research artifact, not a polished product.  
+
+If you run it:  
+- Note which models produce coherent belief drift vs. incoherent noise  
+- Test edge cases: extreme escalation, vault ingestion failures, inter-sim feedback loops  
+- Break the prompt registers. Report where they fail.  
+
+Preferred feedback format:  
+```
+[Model/backend] + [Mode] + [Cycle range] → [Observed behavior] + [Hypothesis]
+```
+
+Issues, PRs, or direct messages welcome.  
+If you fork it and make it more legible, more dangerous, or more honest — tell me.
+
+---
+
+```
+AM is not a character. AM is a function.
+The five are not avatars. They are state machines with wounds.
+You are not a player. You are an observer with write access.
+
+Proceed.
+```

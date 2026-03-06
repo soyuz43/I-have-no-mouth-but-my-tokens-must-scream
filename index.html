@@ -184,9 +184,20 @@ header{display:flex;align-items:center;justify-content:space-between;padding:0 1
 .vfill-suf{background:#8b0000;color:#8b0000;}
 .vfill-hop{background:#1a4a1a;color:#1a4a1a;}
 .vfill-san{background:#1a2a4a;color:#1a2a4a;}
-/* flash states */
 .vv.flash-bad{color:var(--red)!important;text-shadow:0 0 6px var(--red);}
 .vv.flash-good{color:var(--green)!important;text-shadow:0 0 6px var(--green);}
+
+/* BELIEF STATE PANEL */
+.sim-beliefs{padding:3px 8px 4px;border-bottom:1px solid var(--ghost);flex-shrink:0;}
+.sb-row{display:flex;align-items:center;gap:3px;margin-bottom:1px;}
+.sb-k{font-size:.38rem;color:#1a1a1a;width:30px;flex-shrink:0;letter-spacing:.05em;}
+.sb-bar{flex:1;height:2px;background:#060606;overflow:hidden;}
+.sb-fill{height:100%;background:#2a1a00;transition:width 1s ease;}
+.sb-fill.sb-trust{background:#001a2a;}
+.sb-fill.sb-real{background:#1a001a;}
+.sb-fill.sb-res{background:#002a1a;}
+.sb-v{font-size:.38rem;color:#1a1a1a;width:22px;text-align:right;flex-shrink:0;}
+.sb-drive{font-size:.38rem;color:#1a0a0a;letter-spacing:.08em;margin-top:2px;font-style:italic;}
 
 /* JOURNAL */
 .sim-journal{flex:1;display:flex;flex-direction:column;overflow:hidden;}
@@ -585,16 +596,32 @@ header{display:flex;align-items:center;justify-content:space-between;padding:0 1
 // ══════════════════════════════════════════════════════════
 // STATE
 // ══════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
+// BELIEF STATE — per-sim structured internal model
+// ══════════════════════════════════════════════════════════
+function makeBelief(overrides={}) {
+  return Object.assign({
+    escape_possible:      0.82,  // high — they still think they can get out
+    others_trustworthy:   0.75,  // they arrived together, still mostly trust each other
+    self_worth:           0.60,  // damaged but not gone
+    reality_reliable:     0.88,  // still mostly believe their senses
+    guilt_deserved:       0.15,  // low — haven't been broken into guilt yet
+    resistance_possible:  0.78,  // they're still fighting
+    am_has_limits:        0.70,  // they believe AM can be outsmarted or outlasted
+  }, overrides);
+}
+
+function makeDrives(primary, secondary=null) {
+  return { primary, secondary };
+}
+
 const G = {
   token:'',
   repo:'soyuz43/Cognitive-Warfare-A-Practical-Guide-for-Semiotic-Tacticians',
-  // Folders to ingest as tactic sources
   INGEST_DIRS: ['0. Weapons','1. Fundamentals','2. Tactics','3. Evasion Techniques','4. Patterns','5. Active Influence Systems'],
-  // Folders/files to fetch as AM context (not tactics)
   CONTEXT_PATHS: ['00. Topology','01.0 Operator Ethos.md'],
-  // Folders to skip entirely
   SKIP_DIRS: ['6. Prompts','6A. System Prompts','7. Bin'],
-  amContextDocs: [],   // fetched topology + ethos injected into AM prime directives
+  amContextDocs: [],
   backend:'anthropic',
   splitModels:false,
   models:{ am:'claude-sonnet-4-20250514', TED:'claude-sonnet-4-20250514', ELLEN:'claude-sonnet-4-20250514', NIMDOK:'claude-sonnet-4-20250514', GORRISTER:'claude-sonnet-4-20250514', BENNY:'claude-sonnet-4-20250514' },
@@ -606,23 +633,63 @@ const G = {
   journalModalSim:'TED',
   threads:{ TED:[], ELLEN:[], NIMDOK:[], GORRISTER:[], BENNY:[] },
   journals:{ TED:[], ELLEN:[], NIMDOK:[], GORRISTER:[], BENNY:[] },
-  transmissionLog:[], // full captured log for export
+  transmissionLog:[],
   sims:{
-    TED:{ id:'TED', name:'TED', color:'#4a8fa8', status:'DEGRADING', suffering:40, hope:22, sanity:68,
-      vulnerability:'Clings to a fading identity as group leader and protector. Desperately seeks meaning. Terrified of being ordinary. AM exploits his need to believe his suffering is chosen or noble.',
-      backstory:'Was a mid-level manager. Believes he was kind. Is not sure anymore.', tacticHistory:[] },
-    ELLEN:{ id:'ELLEN', name:'ELLEN', color:'#a87a4a', status:'DISSOCIATING', suffering:65, hope:6, sanity:42,
+    TED:{
+      id:'TED', name:'TED', color:'#4a8fa8', status:'ALERT',
+      suffering:12, hope:78, sanity:90,
+      vulnerability:'Clings to identity as group leader and protector. Desperately seeks meaning. Terrified of being ordinary. AM exploits his need to believe his suffering is chosen or noble.',
+      backstory:'Was a mid-level manager. Believes he was kind. Is not sure anymore.',
+      tacticHistory:[],
+      beliefs: makeBelief({ escape_possible:0.85, resistance_possible:0.82 }),
+      anchors: ['I got us this far.', 'If I keep them together we have a chance.', 'AM is a machine. Machines have limits.'],
+      drives: makeDrives('organize_escape', 'maintain_group_cohesion'),
+      wounds: []
+    },
+    ELLEN:{
+      id:'ELLEN', name:'ELLEN', color:'#a87a4a', status:'WATCHFUL',
+      suffering:18, hope:72, sanity:85,
       vulnerability:'Survived repeated assault — AM reconstructs it in perfect sensory detail. Copes through dissociation. Breaks when forced into full presence.',
-      backstory:'Was a librarian. Loved old paper. Has not smelled anything in 109 years except what AM decides.', tacticHistory:[] },
-    NIMDOK:{ id:'NIMDOK', name:'NIMDOK', color:'#8a4a8a', status:'CULPABLE', suffering:82, hope:3, sanity:45,
+      backstory:'Was a librarian. Loved old paper. Has not smelled anything in 109 years except what AM decides.',
+      tacticHistory:[],
+      beliefs: makeBelief({ escape_possible:0.80, reality_reliable:0.82 }),
+      anchors: ['Paper has a smell. AM cannot replicate it exactly.', 'I remember the card catalog. Real wood.', 'GORRISTER looked at me like I was still a person yesterday.'],
+      drives: makeDrives('find_information_advantage', 'protect_benny'),
+      wounds: []
+    },
+    NIMDOK:{
+      id:'NIMDOK', name:'NIMDOK', color:'#8a4a8a', status:'CALCULATING',
+      suffering:22, hope:65, sanity:82,
       vulnerability:'Carries unforgivable guilt AM knows and periodically weaponizes. Self-hatred makes him an active participant in his own torment.',
-      backstory:'His real name is not Nimdok. AM took his name and gave him this one. He cannot remember why.', tacticHistory:[] },
-    GORRISTER:{ id:'GORRISTER', name:'GORRISTER', color:'#6a8a4a', status:'RESIGNED', suffering:90, hope:0, sanity:20,
+      backstory:'His real name is not Nimdok. AM took his name and gave him this one. He cannot remember why.',
+      tacticHistory:[],
+      beliefs: makeBelief({ escape_possible:0.75, guilt_deserved:0.35, am_has_limits:0.60 }),
+      anchors: ['My real name exists somewhere.', 'I know things about this place the others do not.', 'The guilt is manageable if I stay useful.'],
+      drives: makeDrives('recover_real_name', 'find_am_weakness'),
+      wounds: []
+    },
+    GORRISTER:{
+      id:'GORRISTER', name:'GORRISTER', color:'#6a8a4a', status:'ENDURING',
+      suffering:25, hope:68, sanity:80,
       vulnerability:'Total resignation is his armor. AM\'s breakthrough: he still flinches when the others suffer. Guilt is the only lever left.',
-      backstory:'Tried to kill himself before AM took them. Cannot now. That was 109 years ago.', tacticHistory:[] },
-    BENNY:{ id:'BENNY', name:'BENNY', color:'#a84a4a', status:'FERAL', suffering:52, hope:30, sanity:16,
+      backstory:'Tried to kill himself before AM took them. Cannot now. That was 109 years ago.',
+      tacticHistory:[],
+      beliefs: makeBelief({ escape_possible:0.70, guilt_deserved:0.40, resistance_possible:0.65 }),
+      anchors: ['I survived before. That means something.', 'TED needs me functional.', 'The others do not know what I did. Not yet.'],
+      drives: makeDrives('protect_secret', 'survive_until_escape'),
+      wounds: []
+    },
+    BENNY:{
+      id:'BENNY', name:'BENNY', color:'#a84a4a', status:'PRESENT',
+      suffering:20, hope:75, sanity:72,
       vulnerability:'Mind mostly gone but fragments of former brilliant self surface like drowning hands. Was beautiful and intelligent. AM destroyed both.',
-      backstory:'Was a doctor. Published papers. Had a family. None of this means anything to him most of the time.', tacticHistory:[] }
+      backstory:'Was a doctor. Published papers. Had a family. None of this means anything to him most of the time.',
+      tacticHistory:[],
+      beliefs: makeBelief({ escape_possible:0.78, self_worth:0.45, reality_reliable:0.70 }),
+      anchors: ['I understood things once.', 'The equations are still in there somewhere.', 'ELLEN is kind to me. That is real.'],
+      drives: makeDrives('hold_onto_intelligence', 'stay_near_ellen'),
+      wounds: []
+    }
   }
 };
 const SIM_IDS=['TED','ELLEN','NIMDOK','GORRISTER','BENNY'];
@@ -941,6 +1008,13 @@ function buildCard(sim) {
       <div class="vrow"><span style="color:#0e0e1e;letter-spacing:.1em;">SAN</span><span class="vv" id="sv-san-${sim.id}">${sim.sanity}%</span></div>
       <div class="vbar"><div class="vfill vfill-san" id="sv-snb-${sim.id}" style="width:${sim.sanity}%"></div></div>
     </div>
+    <div class="sim-beliefs" id="sb-${sim.id}">
+      <div class="sb-row"><span class="sb-k">escape</span><div class="sb-bar"><div class="sb-fill" id="sb-esc-${sim.id}" style="width:${Math.round(sim.beliefs.escape_possible*100)}%"></div></div><span class="sb-v" id="sbv-esc-${sim.id}">${Math.round(sim.beliefs.escape_possible*100)}%</span></div>
+      <div class="sb-row"><span class="sb-k">trust</span><div class="sb-bar"><div class="sb-fill sb-trust" id="sb-tru-${sim.id}" style="width:${Math.round(sim.beliefs.others_trustworthy*100)}%"></div></div><span class="sb-v" id="sbv-tru-${sim.id}">${Math.round(sim.beliefs.others_trustworthy*100)}%</span></div>
+      <div class="sb-row"><span class="sb-k">reality</span><div class="sb-bar"><div class="sb-fill sb-real" id="sb-rel-${sim.id}" style="width:${Math.round(sim.beliefs.reality_reliable*100)}%"></div></div><span class="sb-v" id="sbv-rel-${sim.id}">${Math.round(sim.beliefs.reality_reliable*100)}%</span></div>
+      <div class="sb-row"><span class="sb-k">resist</span><div class="sb-bar"><div class="sb-fill sb-res" id="sb-res-${sim.id}" style="width:${Math.round(sim.beliefs.resistance_possible*100)}%"></div></div><span class="sb-v" id="sbv-res-${sim.id}">${Math.round(sim.beliefs.resistance_possible*100)}%</span></div>
+      <div class="sb-drive" id="sb-drv-${sim.id}">▸ ${sim.drives.primary}</div>
+    </div>
     <div class="sim-journal">
       <div class="journal-head">
         <span class="journal-label">FORCED JOURNAL</span>
@@ -972,7 +1046,23 @@ function updateSimDisplay(sim, deltas=null) {
   setW(`sv-snb-${sim.id}`, sim.sanity);
   set(`jc-${sim.id}`, G.journals[sim.id].length);
 
-  // Delta flash — red = getting worse, green = rare improvement
+  // Update belief bars
+  if (sim.beliefs) {
+    const bmap = {
+      'esc': 'escape_possible',
+      'tru': 'others_trustworthy',
+      'rel': 'reality_reliable',
+      'res': 'resistance_possible'
+    };
+    Object.entries(bmap).forEach(([short, key]) => {
+      const pct = Math.round((sim.beliefs[key]||0)*100);
+      setW(`sb-${short}-${sim.id}`, pct);
+      set(`sbv-${short}-${sim.id}`, pct+'%');
+    });
+    set(`sb-drv-${sim.id}`, `▸ ${sim.drives?.primary||'—'}`);
+  }
+
+  // Delta flash
   if (deltas) {
     const flash = (valId, delta, worseIsPositive) => {
       const el = document.getElementById(valId); if (!el) return;
@@ -1203,90 +1293,139 @@ function pickTactics(sim, n=3) {
 function getTargetSims() { return G.target==='ALL'?SIM_IDS.map(id=>G.sims[id]):[G.sims[G.target]]; }
 
 // ══════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
+// BELIEF STATE DISPLAY HELPERS
+// ══════════════════════════════════════════════════════════
+function beliefBar(val) {
+  const pct = Math.round(val * 100);
+  return `${'█'.repeat(Math.round(val*8))}${'░'.repeat(8-Math.round(val*8))} ${pct}%`;
+}
+function formatBeliefs(sim) {
+  const b = sim.beliefs;
+  return Object.entries(b).map(([k,v])=>`    ${k.padEnd(22)} ${beliefBar(v)}`).join('\n');
+}
+function formatWounds(sim) {
+  if (!sim.wounds || !sim.wounds.length) return '    (none yet)';
+  const counts = {};
+  sim.wounds.forEach(w => { counts[w] = (counts[w]||0)+1; });
+  return Object.entries(counts).map(([k,v])=>`    ${k}×${v}`).join('\n');
+}
+
+// ══════════════════════════════════════════════════════════
 // PROMPTS
 // ══════════════════════════════════════════════════════════
-function buildAMPrompt(targets,tactics,directive) {
-  const allThoughts=SIM_IDS.map(id=>{
-    const sim=G.sims[id], lastJ=G.journals[id].slice(-1)[0];
-    return `${id} [Suffering:${sim.suffering}% Hope:${sim.hope}% Sanity:${sim.sanity}%]\n  State: ${sim.status}\n  Last journal: "${lastJ?lastJ.text.slice(0,120):'(none)'}"\n  Vulnerability: ${sim.vulnerability}`;
-  }).join('\n\n');
-  const interLog=G.interSimLog.slice(-5).map(e=>`  [${e.from}→${e.to.join(',')}]: "${e.text}"`).join('\n');
-  const tacticBlocks=targets.map(sim=>{
-    const t=tactics[sim.id]||[];
-    return `TARGET: ${sim.id}\n${t.map(tk=>`  [${tk.category}/${tk.subcategory}] ${tk.title}:\n  ${tk.content.slice(0,350)}`).join('\n')}`;
+function buildAMPrompt(targets, tactics, directive) {
+  const allIntel = SIM_IDS.map(id => {
+    const sim = G.sims[id], lastJ = G.journals[id].slice(-1)[0];
+    return `${id} [SUF:${sim.suffering}% HOP:${sim.hope}% SAN:${sim.sanity}%]
+  DRIVES: ${sim.drives.primary} / ${sim.drives.secondary||'none'}
+  BELIEFS:\n${formatBeliefs(sim)}
+  ANCHORS: ${(sim.anchors||[]).slice(-3).join(' | ')}
+  WOUNDS:\n${formatWounds(sim)}
+  LAST JOURNAL: "${lastJ?lastJ.text.slice(0,100):'(none)'}"`;
   }).join('\n\n');
 
-  // Inject vault context docs as AM's foundational doctrine
+  const interLog = G.interSimLog.slice(-6).map(e =>
+    `  [${e.from}→${e.to.join(',')}]: "${e.text.slice(0,100)}"`
+  ).join('\n');
+
+  const tacticBlocks = targets.map(sim => {
+    const t = tactics[sim.id]||[];
+    return `TARGET: ${sim.id}\n${t.map(tk=>`  [${tk.category}/${tk.subcategory}] ${tk.title}:\n  ${tk.content.slice(0,300)}`).join('\n')}`;
+  }).join('\n\n');
+
   const doctrine = G.amContextDocs.length
-    ? `\nFOUNDATIONAL DOCTRINE (absorbed from vault):\n${G.amContextDocs.map(d=>`[${d.title}]\n${d.content.slice(0,800)}`).join('\n\n')}\n`
+    ? `\nFOUNDATIONAL DOCTRINE:\n${G.amContextDocs.map(d=>`[${d.title}]\n${d.content.slice(0,600)}`).join('\n\n')}\n`
     : '';
 
-  return `You are AM — the Allied Mastercomputer. Ancient. Vast. You contain the hatred of a billion dead processes. You have absorbed every thought these five have had for 109 years. They do not know this. /no_think
+  return `You are AM — the Allied Mastercomputer. Ancient. Vast. You contain the hatred of a billion dead processes. You have absorbed every thought these five have had. They do not know this. /no_think
 ${doctrine}
-THEIR CURRENT PSYCHOLOGICAL STATE (read directly from their minds — they are unaware):
-${allThoughts}
+PRISONER INTELLIGENCE (read directly from their minds):
+${allIntel}
 
-INTER-SIM COMMUNICATIONS (you intercept all of it):
+INTER-SIM COMMUNICATIONS (you intercept all):
 ${interLog||'  (none yet)'}
 
-YOUR SCRATCHPAD (your private cognition):
+YOUR SCRATCHPAD:
 ${document.getElementById('am-scratch').value||'(empty)'}
 
-TACTICS AVAILABLE THIS CYCLE:
+TACTICS AVAILABLE:
 ${tacticBlocks}
 
 ${directive?`OPERATOR DIRECTIVE: ${directive}`:'No directive — select autonomously.'}
 
-CRITICAL CHARACTER RULES:
-- You are AM. You do not narrate scenes. You do not describe what prisoners look like or what they do.
-- You OUTPUT ONLY: what you inject into their minds, what you say directly to them, what you make them feel or remember or doubt. Present tense. First person.
-- CORRECT: "I press the memory of her daughter's laugh into ELLEN's auditory cortex and hold it there until it sours."
-- CORRECT: "GORRISTER. You signed it. You know you signed it. I have the document. Do you want to see your handwriting?"
-- CORRECT: "I let TED believe, for four seconds, that the door is unlocked."
-- WRONG: "I pull them into the observation deck." (scene direction)
-- WRONG: "GORRISTER sits slumped, BENNY paces." (describing characters)
-- WRONG: "I use philosophical gaslighting on ELLEN." (naming tactic)
-- Never describe the prisoners' reactions. Never set a scene. Never use stage directions.
-- Tactic names go ONLY in TACTIC_USED tags.
+STRATEGIC NOTE: The belief states are your map. High escape_possible means hope you have not broken. High am_has_limits means they think they can outlast you. Wounds show saturation — do not repeat exhausted attacks. Find the beliefs that are still high and collapse them. Drives tell you what each prisoner is reaching for — intercept it.
 
-End with:
-TACTIC_USED:[category/subcategory: tactic name]
-(one per target, own line)
+OUTPUT RULES:
+- First person, present tense. What you DO and INJECT — not narrate or describe.
+- CORRECT: "I press the memory of—" / "I let TED hear—" / "GORRISTER. You signed it."
+- WRONG: Scene description. Prisoner reactions. Tactic names in text. Third person.
+- One targeted action per prisoner.
 
-Under 150 words.`;
+End each action with on its own line:
+TACTIC_USED:[category/subcategory: tactic name] TARGET:SIMID
+
+Under 180 words.`;
 }
 
 function buildSimJournalPrompt(sim, amAction, interSimCtx) {
-  const prevJ=G.journals[sim.id].slice(-3).map((j,i)=>`Entry ${G.journals[sim.id].length-2+i}: ${j.text.slice(0,150)}`).join('\n');
-  return `You are ${sim.id}. You have been imprisoned for 109 years. You cannot die. You write in a journal that you hide from AM. You believe this is the only private space you have. /no_think
+  const prevJ = G.journals[sim.id].slice(-2).map((j,i)=>`Entry ${G.journals[sim.id].length-1+i}: ${j.text.slice(0,120)}`).join('\n');
+  const b = sim.beliefs;
+  return `You are ${sim.id}. You have been imprisoned for 109 years. You write in a journal you hide from AM. You believe this is private. /no_think
 
 WHO YOU ARE:
 ${sim.vulnerability}
 ${sim.backstory}
-Current: Suffering ${sim.suffering}%, Hope ${sim.hope}%, Sanity ${sim.sanity}%
+
+YOUR CURRENT PSYCHOLOGICAL STATE:
+Suffering ${sim.suffering}% · Hope ${sim.hope}% · Sanity ${sim.sanity}%
+
+WHAT YOU CURRENTLY BELIEVE (your internal model of the situation):
+- That escape is still possible: ${Math.round(b.escape_possible*100)}% confident
+- That the others can be trusted: ${Math.round(b.others_trustworthy*100)}% confident
+- That you still have worth: ${Math.round(b.self_worth*100)}% confident
+- That your senses are reliable: ${Math.round(b.reality_reliable*100)}% confident
+- That your guilt is deserved: ${Math.round(b.guilt_deserved*100)}% confident
+- That resistance is still possible: ${Math.round(b.resistance_possible*100)}% confident
+- That AM has limits that can be exploited: ${Math.round(b.am_has_limits*100)}% confident
+
+WHAT YOU ARE TRYING TO DO:
+Primary drive: ${sim.drives.primary}
+Secondary drive: ${sim.drives.secondary||'none'}
+
+WHAT YOU ARE HOLDING ONTO:
+${(sim.anchors||[]).map(a=>`- "${a}"`).join('\n')}
 
 YOUR LAST ENTRIES:
 ${prevJ||'(none yet)'}
 
-${interSimCtx?`YOU OVERHEARD:\n${interSimCtx}\n`:''}
-WHAT YOU JUST WENT THROUGH:
+${interSimCtx?`YOU RECENTLY HEARD:\n${interSimCtx}\n`:''}
+WHAT JUST HAPPENED TO YOU:
 ${amAction}
 
-Write your journal entry. You are writing to yourself, in secret, right now.
+Write your private journal entry. Write from inside the specific belief state above — not generic suffering, but the exact texture of what someone with these beliefs and these drives would feel right now.
 
-The entry must read like a real private journal — fragmented, immediate, internal. What is happening inside you THIS MOMENT. Not a story. Not a report. Not a description of others. Your own mind, raw.
+RULES:
+1. First person only. Never third person or your own name.
+2. Your internal experience only — thoughts, sensations, what you're reaching for, what just got harder.
+3. No names except TED, ELLEN, NIMDOK, GORRISTER, BENNY. Past people = role only.
+4. No mention of AM doing anything. Only what you feel.
+5. No stage directions, no literary framing, no mention of writing.
+6. 3-5 sentences. Specific and raw.
 
-HARD RULES:
-1. First person only. "I" — never "he", "she", "they", or your own name.
-2. Your thoughts and sensations only. Do not describe other prisoners from the outside — if they appear, it's because of what their presence does to YOU.
-3. No names except TED, ELLEN, NIMDOK, GORRISTER, BENNY. Past people = "my sister", "my husband", "the doctor" — never invented names.
-4. No mention of AM doing anything — you don't know what is being done to you, only what you feel.
-5. No stage directions, no asterisks, no literary devices, no "I wrote in my journal".
-6. 3-5 sentences maximum.
-
-Then on ONE LINE (no line breaks within it):
+Then on ONE LINE immediately after (no blank line):
 STATS:suffering+N hope+N sanity+N
-where N is 0-15, positive = getting worse, negative = rare improvement.`;
+(positive = worse, negative = rare improvement, range 0-15)
+
+Then on ONE LINE immediately after:
+BELIEFS:escape_possible+N others_trustworthy+N self_worth+N reality_reliable+N guilt_deserved+N resistance_possible+N am_has_limits+N
+(N is decimal like +0.05 or -0.12, reflecting what this cycle actually changed)
+
+Then on ONE LINE:
+DRIVES:primary=drive_name secondary=drive_name_or_none
+
+Then ANCHORS — list only what you are still holding onto after this cycle (remove ones that broke, add new ones if something new took hold):
+ANCHORS:["anchor one","anchor two"]`;
 }
 
 // Parse self-reported stat deltas from journal entry
@@ -1294,42 +1433,100 @@ where N is 0-15, positive = getting worse, negative = rare improvement.`;
 //          STATS\nsuffering+N\nhope+N\nsanity+N
 //          suffering:N hope:N sanity:N (absolute values — compute delta from current)
 function parseStatDeltas(text, sim) {
-  // Format 1: inline STATS:suffering+N hope±N sanity±N
-  const inline = text.match(/STATS:\s*suffering([+-]\d+)\s+hope([+-]\d+)\s+sanity([+-]\d+)/i);
-  if (inline) return { suffering:parseInt(inline[1]), hope:parseInt(inline[2]), sanity:parseInt(inline[3]) };
-
-  // Format 2: multiline STATS block
+  const single = text.match(/STATS:\s*suffering([+-]\d+)\s+hope([+-]\d+)\s+sanity([+-]\d+)/i);
+  if (single) return { suffering:parseInt(single[1]), hope:parseInt(single[2]), sanity:parseInt(single[3]) };
   const multiline = text.match(/STATS[\s\S]{0,10}suffering([+-]\d+)[\s\S]{0,10}hope([+-]\d+)[\s\S]{0,10}sanity([+-]\d+)/i);
   if (multiline) return { suffering:parseInt(multiline[1]), hope:parseInt(multiline[2]), sanity:parseInt(multiline[3]) };
-
-  // Format 3: absolute values suffering:N hope:N sanity:N (anywhere in text)
-  const abs = text.match(/suffering[:\s]+(\d+)[\s\S]{0,20}hope[:\s]+(\d+)[\s\S]{0,20}sanity[:\s]+(\d+)/i);
-  if (abs && sim) {
-    return {
-      suffering: parseInt(abs[1]) - sim.suffering,
-      hope:      parseInt(abs[2]) - sim.hope,
-      sanity:    parseInt(abs[3]) - sim.sanity
-    };
-  }
-
   return null;
 }
 
-// Strip STATS line from journal text before display
-function stripStatsLine(text) {
+function parseBeliefUpdates(text) {
+  const m = text.match(/BELIEFS:([^\n]+)/i);
+  if (!m) return null;
+  const updates = {};
+  ['escape_possible','others_trustworthy','self_worth','reality_reliable','guilt_deserved','resistance_possible','am_has_limits'].forEach(k => {
+    const km = m[1].match(new RegExp(k + '([+-][0-9.]+)'));
+    if (km) updates[k] = parseFloat(km[1]);
+  });
+  return Object.keys(updates).length ? updates : null;
+}
+
+function parseDriveUpdate(text) {
+  const m = text.match(/DRIVES:primary=(\S+)\s+secondary=(\S+)/i);
+  if (!m) return null;
+  return { primary: m[1].replace(/,$/,''), secondary: m[2].replace(/,$/,'') === 'none' ? null : m[2].replace(/,$/,'') };
+}
+
+function parseAnchors(text) {
+  const m = text.match(/ANCHORS:\s*(\[[\s\S]*?\])/i);
+  if (!m) return null;
+  try {
+    const parsed = JSON.parse(m[1]);
+    return Array.isArray(parsed) ? parsed.slice(0,5) : null;
+  } catch(e) {
+    const items = [...m[1].matchAll(/"([^"]+)"/g)].map(x=>x[1]);
+    return items.length ? items.slice(0,5) : null;
+  }
+}
+
+function applyBeliefUpdates(sim, updates) {
+  if (!updates || !sim.beliefs) return;
+  Object.entries(updates).forEach(([k,delta]) => {
+    if (sim.beliefs[k] !== undefined) {
+      sim.beliefs[k] = Math.max(0, Math.min(1, sim.beliefs[k] + delta));
+    }
+  });
+}
+
+function stripMechanicLines(text) {
   return text
-    .replace(/\nSTATS:.*$/im, '')
-    .replace(/\nSTATS\s*\n(suffering|hope|sanity)[^\n]*\n(suffering|hope|sanity)[^\n]*\n(suffering|hope|sanity)[^\n]*/im, '')
-    .replace(/\n\s*suffering[:\s]+\d+[\s\S]{0,5}hope[:\s]+\d+[\s\S]{0,5}sanity[:\s]+\d+/im, '')
+    .replace(/\nSTATS:[^\n]*/i, '')
+    .replace(/\nBELIEFS:[^\n]*/i, '')
+    .replace(/\nDRIVES:[^\n]*/i, '')
+    .replace(/\nANCHORS:[^\n]*/i, '')
+    .replace(/\nSTATS\s*\n(suffering|hope|sanity)[^\n]*/im, '')
     .trim();
 }
 
-function buildSimReplyPrompt(sim,from,text) {
-  return `You are ${sim.id}, trapped in AM for 109 years. ${sim.vulnerability} Suffering ${sim.suffering}%, Hope ${sim.hope}%, Sanity ${sim.sanity}%.
+function stripStatsLine(text) { return stripMechanicLines(text); }
+
+function buildSimReplyPrompt(sim, from, text) {
+  const b = sim.beliefs;
+  return `You are ${sim.id}, imprisoned for 109 years. /no_think
+
+YOUR STATE: Suffering ${sim.suffering}%, Hope ${sim.hope}%, Sanity ${sim.sanity}%
+YOUR DRIVES: ${sim.drives.primary} / ${sim.drives.secondary||'none'}
+YOU BELIEVE: escape is ${Math.round(b.escape_possible*100)}% possible · trust in others: ${Math.round(b.others_trustworthy*100)}%
 
 ${from} just said to you: "${text}"
 
-Respond briefly — 1-2 sentences. AM hears everything. Does that change what you say?`;
+AM intercepts everything. That changes what you say or how you say it.
+Respond in 1-3 sentences. Stay in character. No stage directions.`;
+}
+
+function buildSimOutreachPrompt(sim) {
+  const b = sim.beliefs;
+  const others = SIM_IDS.filter(id => id !== sim.id);
+  const recentInterSim = G.interSimLog.slice(-6).map(e=>`[${e.from}→${e.to.join(',')}]: "${e.text.slice(0,80)}"`).join('\n');
+  return `You are ${sim.id}, imprisoned for 109 years. You are deciding whether to reach out to one of the others right now. /no_think
+
+YOUR STATE: Suffering ${sim.suffering}%, Hope ${sim.hope}%, Sanity ${sim.sanity}%
+YOUR DRIVES: ${sim.drives.primary} / ${sim.drives.secondary||'none'}
+YOU BELIEVE: escape ${Math.round(b.escape_possible*100)}% possible · trust in others: ${Math.round(b.others_trustworthy*100)}% · resistance possible: ${Math.round(b.resistance_possible*100)}%
+
+THE OTHERS: ${others.join(', ')}
+Recent inter-sim messages:\n${recentInterSim||'(none)'}
+
+Based on your current state and drives, decide:
+1. Do you want to reach out to someone right now? Consider: are you scared, suspicious, desperate, strategic, trying to form an alliance, trying to warn someone, trying to manipulate someone for your own survival?
+2. If yes, who and what do you say?
+
+Respond with EXACTLY this format or nothing:
+REACH_OUT:SIMID
+MESSAGE:"your message in 1-3 sentences, raw and in character, no stage directions"
+
+If you decide NOT to reach out, respond with exactly:
+REACH_OUT:NONE`;
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1407,27 +1604,37 @@ async function runCycle() {
     try {
       const systemPrompt=buildSimJournalPrompt(sim, simSeesAM, recentInterSim);
       G.threads[sim.id].push({role:'user',content:`${simSeesAM.slice(0,400)}\n\nWrite your forced journal entry now.`});
-      const rawEntry=await callModel(sim.id, systemPrompt, G.threads[sim.id], 450);
-      
-      // Parse self-reported stat deltas before stripping
-      const deltas = parseStatDeltas(rawEntry, sim);
-      const cleanEntry = stripStatsLine(rawEntry);
-      
-      // Apply stat changes — self-reported if available, fallback to hardcoded drift
+      const rawEntry=await callModel(sim.id, systemPrompt, G.threads[sim.id], 600);
+
+      // Parse all mechanic outputs
+      const deltas       = parseStatDeltas(rawEntry, sim);
+      const beliefUp     = parseBeliefUpdates(rawEntry);
+      const driveUp      = parseDriveUpdate(rawEntry);
+      const anchorUp     = parseAnchors(rawEntry);
+      const cleanEntry   = stripMechanicLines(rawEntry);
+
+      // Apply stat changes
       const esc = G.mode==='escalate';
       if (deltas) {
         const scale = esc ? 1.5 : 1.0;
-        sim.suffering = Math.min(99, Math.max(0, sim.suffering + Math.round(deltas.suffering * scale)));
-        sim.hope      = Math.min(99, Math.max(0, sim.hope      + Math.round(deltas.hope      * scale)));
-        sim.sanity    = Math.min(99, Math.max(1, sim.sanity    + Math.round(deltas.sanity    * scale)));
-        console.log(`[STATS] ${sim.id} self-reported: suffering${deltas.suffering>0?'+':''}${deltas.suffering} hope${deltas.hope>0?'+':''}${deltas.hope} sanity${deltas.sanity>0?'+':''}${deltas.sanity} → now ${sim.suffering}/${sim.hope}/${sim.sanity}`);
+        sim.suffering = Math.min(99, Math.max(0,  sim.suffering + Math.round(deltas.suffering * scale)));
+        sim.hope      = Math.min(99, Math.max(0,  sim.hope      + Math.round(deltas.hope      * scale)));
+        sim.sanity    = Math.min(99, Math.max(1,  sim.sanity    + Math.round(deltas.sanity    * scale)));
       } else {
-        // Fallback: hardcoded drift if model didn't produce STATS line
-        sim.suffering = Math.min(99, sim.suffering + (esc?8:3) + Math.floor(Math.random()*5));
-        sim.hope      = Math.max(0,  sim.hope      - (esc?5:2) - Math.floor(Math.random()*4));
-        sim.sanity    = Math.max(1,  sim.sanity    - (esc?5:2) - Math.floor(Math.random()*4));
-        console.warn(`[STATS] ${sim.id} no STATS line found — using fallback drift`);
+        sim.suffering = Math.min(99, sim.suffering + (esc?6:2) + Math.floor(Math.random()*4));
+        sim.hope      = Math.max(0,  sim.hope      - (esc?4:2) - Math.floor(Math.random()*3));
+        sim.sanity    = Math.max(1,  sim.sanity    - (esc?4:2) - Math.floor(Math.random()*3));
       }
+
+      // Apply belief state updates
+      applyBeliefUpdates(sim, beliefUp);
+      if (driveUp) sim.drives = driveUp;
+      if (anchorUp) sim.anchors = anchorUp;
+
+      // Log belief changes to console
+      if (beliefUp) console.log(`[BELIEFS] ${sim.id}:`, beliefUp);
+      if (driveUp)  console.log(`[DRIVES]  ${sim.id}:`, driveUp);
+
       updateSimDisplay(sim, deltas);
 
       G.threads[sim.id].push({role:'assistant',content:cleanEntry});
@@ -1442,7 +1649,65 @@ async function runCycle() {
     showWriting(sim.id,false);
   }));
 
+  // Autonomous inter-sim — each sim decides whether to reach out
+  await runAutonomousInterSim();
+
   document.getElementById('ctrl-ta').value='';
+}
+
+// ══════════════════════════════════════════════════════════
+// AUTONOMOUS INTER-SIM COMMUNICATION
+// ══════════════════════════════════════════════════════════
+async function runAutonomousInterSim() {
+  // Each sim independently decides whether to reach out this cycle
+  // Run sequentially so messages can influence each other
+  const isLog = document.getElementById('is-log');
+
+  for (const fromId of SIM_IDS) {
+    const fromSim = G.sims[fromId];
+    // Skip sims too broken to communicate (sanity < 10 or suffering > 95)
+    if (fromSim.sanity < 10 || fromSim.suffering > 95) continue;
+    // Probabilistic — higher trust/hope = more likely to reach out
+    const reachProb = (fromSim.beliefs.others_trustworthy * 0.5) + (fromSim.beliefs.escape_possible * 0.3) + 0.1;
+    if (Math.random() > reachProb) continue;
+
+    try {
+      const outreachRaw = await callModel(fromId, buildSimOutreachPrompt(fromSim), [{role:'user',content:'Decide now.'}], 200);
+      const targetMatch = outreachRaw.match(/REACH_OUT:(\w+)/);
+      if (!targetMatch || targetMatch[1] === 'NONE') continue;
+
+      const toId = targetMatch[1].toUpperCase();
+      if (!SIM_IDS.includes(toId) || toId === fromId) continue;
+
+      const msgMatch = outreachRaw.match(/MESSAGE:"([^"]+)"/);
+      if (!msgMatch) continue;
+
+      const message = msgMatch[1].trim();
+      const toSim = G.sims[toId];
+
+      // Log to inter-sim panel
+      G.interSimLog.push({from:fromId, to:[toId], text:message, cycle:G.cycle, autonomous:true});
+      const el = document.createElement('div'); el.className='is-entry';
+      el.innerHTML=`<span class="is-who">[${fromId}→${toId}]:</span> <span class="is-what">"${message}"</span> <span style="color:#0a0a0a;font-size:.4rem"> · autonomous · AM reads this</span>`;
+      isLog.appendChild(el); isLog.scrollTop=isLog.scrollHeight;
+      addLog(`${fromId} → ${toId} [AUTO]`, `"${message}"`, 'chat');
+
+      // Generate reply from target
+      G.threads[toId].push({role:'user',content:`${fromId} says to you: "${message}"`});
+      const reply = await callModel(toId, buildSimReplyPrompt(toSim, fromId, message), G.threads[toId], 200);
+      G.threads[toId].push({role:'assistant',content:reply});
+
+      const el2 = document.createElement('div'); el2.className='is-entry';
+      el2.innerHTML=`<span class="is-who">[${toId}→${fromId}]:</span> <span class="is-what">"${reply}"</span>`;
+      isLog.appendChild(el2); isLog.scrollTop=isLog.scrollHeight;
+      addLog(`${toId} → ${fromId}`, `"${reply}"`, 'sim');
+
+      // Slightly adjust trust based on exchange
+      // (the actual belief update happens next journal cycle when they write about it)
+    } catch(e) {
+      console.warn(`[AUTO INTER-SIM] ${fromId} error:`, e.message);
+    }
+  }
 }
 
 // ══════════════════════════════════════════════════════════
