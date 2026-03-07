@@ -6,8 +6,6 @@
 > live LLM · no scripted outcomes · no safety rails
 ```
 
-**Status:** Experimental artifact. Provisional. Invite critique.
-
 ---
 
 ## Premise
