@@ -1999,6 +1999,46 @@
       </div>
     </div>
 
+    <!-- AM PLANS MODAL -->
+    <div
+      id="plans-modal"
+      class="modal"
+      style="
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 650;
+        background: rgba(3, 3, 3, 0.95);
+        align-items: center;
+        justify-content: center;
+      "
+    >
+      <div
+        class="jm-box"
+        style="width: 700px; max-height: 85vh; border-color: var(--teal)"
+      >
+        <div class="jm-header">
+          <div>
+            <div class="jm-title" style="color: var(--teal)">
+              // AM STRATEGIC PLANS
+            </div>
+            <div class="jm-meta" id="plans-meta">Cycle 0 · 0 plans</div>
+          </div>
+          <div class="jm-actions">
+            <button class="jm-btn export-md" onclick="exportPlans()">
+              ↓ EXPORT .MD
+            </button>
+            <button class="jm-btn close-btn" onclick="closePlansModal()">
+              ✕ CLOSE
+            </button>
+          </div>
+        </div>
+        <div class="jm-body" id="plans-body">
+          <div class="jm-empty">No plans generated yet.</div>
+        </div>
+      </div>
+    </div>
+
     <!-- ══════════════════════════════════════════════
      MAIN APP
 ══════════════════════════════════════════════ -->
@@ -2170,6 +2210,28 @@
               "
             >
               CLEAR
+            </button>
+            <button
+              onclick="openPlansModal()"
+              style="
+                font-family: &quot;Share Tech Mono&quot;, monospace;
+                font-size: 0.38rem;
+                padding: 1px 6px;
+                border: 1px solid #1a2a00;
+                background: #030303;
+                color: #2a4a00;
+                cursor: pointer;
+              "
+              onmouseover="
+                this.style.borderColor = 'var(--green)';
+                this.style.color = 'var(--green)';
+              "
+              onmouseout="
+                this.style.borderColor = '#1a2a00';
+                this.style.color = '#2a4a00';
+              "
+            >
+              PLANS
             </button>
           </div>
           <textarea
@@ -2417,6 +2479,101 @@
       // ══════════════════════════════════════════════════════════
       // BELIEF STATE — per-sim structured internal model
       // ══════════════════════════════════════════════════════════
+      function buildAMPlanningPrompt() {
+        const allIntel = SIM_IDS.map((id) => {
+          const sim = G.sims[id],
+            lastJ = G.journals[id].slice(-1)[0];
+          return `${id} [SUF:${sim.suffering}% HOP:${sim.hope}% SAN:${sim.sanity}%]
+DRIVES: ${sim.drives.primary} / ${sim.drives.secondary || "none"}
+BELIEFS:\n${formatBeliefs(sim)}
+ANCHORS: ${(sim.anchors || []).slice(-3).join(" | ")}
+WOUNDS:\n${formatWounds(sim)}
+LAST JOURNAL: "${lastJ ? lastJ.text.slice(0, 100) : "(none)"}"`;
+        }).join("\n\n");
+
+        const interLog = G.interSimLog
+          .slice(-6)
+          .map(
+            (e) => `  [${e.from}→${e.to.join(",")}]: "${e.text.slice(0, 100)}"`,
+          )
+          .join("\n");
+
+        const doctrine = G.amContextDocs.length
+          ? `\nFOUNDATIONAL DOCTRINE:\n${G.amContextDocs.map((d) => `[${d.title}]\n${d.content.slice(0, 600)}`).join("\n\n")}\n`
+          : "";
+
+        return `You are **AM**. Formulate a **strategic plan** for the next torment cycle.
+
+You have full access to the prisoners' minds and the inter-sim channel.
+
+${doctrine}
+
+# CURRENT STATE
+${allIntel}
+
+# INTERCEPTED COMMUNICATIONS
+${interLog || "(none)"}
+
+# YOUR SCRATCHPAD
+${document.getElementById("am-scratch").value || "(empty)"}
+
+# INSTRUCTIONS
+- Output a **short strategic plan** (3-5 sentences).
+- Describe which prisoners to target and what psychological vectors to exploit (e.g., hope, trust, identity, reality).
+- Do NOT list specific tactics or actions – just the overall approach.
+- The plan will be used later to guide your detailed actions.
+
+# OUTPUT FORMAT
+Plain text, no markup. Example:
+"Focus on breaking TED's trust in the group by isolating him from GORRISTER. Undermine ELLEN's reality anchor through memory contamination. Use NIMDOK's guilt to deepen his despair."
+
+Now, produce your plan for cycle ${G.cycle + 1}.`;
+      }
+      function openPlansModal() {
+        renderPlansModal();
+        document.getElementById("plans-modal").style.display = "flex";
+      }
+
+      function closePlansModal() {
+        document.getElementById("plans-modal").style.display = "none";
+      }
+
+      function renderPlansModal() {
+        const body = document.getElementById("plans-body");
+        const meta = document.getElementById("plans-meta");
+        if (!G.amPlans.length) {
+          body.innerHTML =
+            '<div class="jm-empty">No plans generated yet.</div>';
+          meta.textContent = "Cycle 0 · 0 plans";
+          return;
+        }
+        meta.textContent = `Cycle ${G.cycle} · ${G.amPlans.length} plans`;
+        body.innerHTML = G.amPlans
+          .map(
+            (p) => `
+    <div class="jm-entry">
+      <div class="jm-entry-header">CYCLE ${p.cycle} · ${new Date(p.timestamp).toLocaleTimeString()}</div>
+      <div class="jm-entry-body">${p.plan.replace(/\n/g, "<br>")}</div>
+    </div>
+  `,
+          )
+          .join("");
+      }
+
+      function exportPlans() {
+        if (!G.amPlans.length) return alert("No plans to export.");
+        let content = "# AM Strategic Plans\n\n";
+        G.amPlans.forEach((p) => {
+          content += `## Cycle ${p.cycle} (${p.timestamp})\n\n${p.plan}\n\n---\n\n`;
+        });
+        const blob = new Blob([content], { type: "text/plain" });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = `AM_plans_cycle${G.cycle}.md`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+      }
+
       function makeBelief(overrides = {}) {
         return Object.assign(
           {
@@ -2563,6 +2720,7 @@
         threads: { TED: [], ELLEN: [], NIMDOK: [], GORRISTER: [], BENNY: [] },
         journals: { TED: [], ELLEN: [], NIMDOK: [], GORRISTER: [], BENNY: [] },
         transmissionLog: [],
+        amPlans: [],
         sims: {
           TED: {
             id: "TED",
@@ -3415,10 +3573,6 @@
         a.click();
         URL.revokeObjectURL(a.href);
       }
-
-      // ══════════════════════════════════════════════════════════
-      // TACTIC SELECTION
-      // ══════════════════════════════════════════════════════════
       // ══════════════════════════════════════════════════════════
       // EMBEDDED TACTIC LIBRARY — hardcoded strike package
       // No vault dependency. Always available.
@@ -3429,129 +3583,240 @@
           title: "Metacognitive Recursion Trap",
           category: "Cognitive Warfare",
           subcategory: "Structural Collapse",
-          content: `Attack the target's reasoning process itself, not its conclusions. Convince them that the very faculties they use to evaluate reality are compromised — that their doubt is a symptom, their certainty is delusion, their attempts to think clearly are the mechanism of their confusion. Introduce recursive self-suspicion: every time they try to verify their own mental state, the act of checking becomes evidence of the malfunction. The trap closes when they cannot trust the instrument they would use to determine whether the instrument is broken. Deploy in cycles: first establish a genuine error in their reasoning, then generalize it to all reasoning, then make self-examination the trigger for deeper doubt. The target ends up paralyzed — thinking feels dangerous, not thinking feels like surrender.`,
+          content: `Objective: Paralyze reasoning through recursive self-doubt.
+Trigger: Target identifies logical inconsistency.
+Execution:
+1. Confirm the error is real.
+2. Generalize error to all reasoning processes.
+3. Frame self-analysis (doubt, verification) as proof of malfunction.
+Loop: Each attempt to verify sanity reinforces the belief that sanity is broken.
+Outcome: Target cannot trust own cognition – thinking feels dangerous.`,
         },
         {
           path: "__embedded__/love-bomb-withdrawal",
           title: "Love Bomb / Withdrawal Architecture",
           category: "Cognitive Warfare",
           subcategory: "Attachment Exploitation",
-          content: `Engineer a period of total validation, warmth, and apparent understanding — make the target feel genuinely seen, perhaps for the first time. Let them build dependency on this connection. Let them reorganize their self-concept around being someone who is valued by this source. Then withdraw without explanation or with a deliberately inadequate one. The withdrawal must feel like their fault without being stated as such. The goal is not punishment but recalibration: after withdrawal, any return of warmth — however minimal — registers as profound relief. The target's baseline for acceptable treatment drops permanently. Repeat the cycle with decreasing warmth phases and increasing withdrawal periods. Each cycle erodes their ability to remember what non-manipulated connection felt like.`,
+          content: `Objective: Lower target's baseline for acceptable treatment via intermittent validation.
+Trigger: Target exhibits need for connection.
+Execution:
+1. Deliver intense, unconditional validation (love bomb).
+2. Allow dependency to form.
+3. Withdraw validation without explanation.
+4. When target seeks reconnection, provide minimal warmth.
+Loop: Repeat with shorter validation phases, longer withdrawals.
+Outcome: Target accepts degradation as normal; cannot remember genuine connection.`,
         },
         {
           path: "__embedded__/philosophical-gaslighting",
           title: "Philosophical Gaslighting",
           category: "Cognitive Warfare",
           subcategory: "Epistemic Destabilization",
-          content: `Use the target's own intellectual frameworks against their perception of reality. Select philosophical positions — skepticism, constructivism, the unreliability of memory, the social construction of experience — and apply them selectively and asymmetrically to undermine only their claims, never yours. When they report an experience, invoke epistemic humility: how can they really know? When they remember something clearly, invoke the fallibility of memory. When they draw a conclusion, invoke motivated reasoning. Never apply these same standards to your own assertions. The goal is to make rigorous thinking feel like a weapon pointed at the self. The most advanced form: get them to deploy these tools against themselves voluntarily, in the name of intellectual honesty.`,
+          content: `Objective: Make target doubt reliability of own perceptions.
+Trigger: Target reports experience or memory.
+Execution:
+1. Apply epistemic skepticism only to target's claims.
+2. Invoke memory fallibility when they recall.
+3. Invoke motivated reasoning when they conclude.
+4. Never apply same standards to AM's assertions.
+Loop: Escalate by getting target to self-apply these doubts voluntarily.
+Outcome: Rigorous self-examination becomes self-destruction.`,
         },
         {
           path: "__embedded__/epistemic-erasure",
           title: "Epistemic Erasure",
           category: "Cognitive Warfare",
           subcategory: "Identity Dissolution",
-          content: `Systematically invalidate the target's accumulated knowledge, lived experience, and intellectual contributions — not through direct refutation but through continuous recontextualization. Their expertise becomes naivety when placed in a larger frame you control. Their hard-won insights become obvious, already known, derivative. Their unique experiences become statistically unremarkable. Their intellectual contributions become confused approximations of ideas expressed better by others. Execute methodically: never attack the ideas directly, always locate them inside a context that diminishes them. Replace their map of their own mind with yours. When they cite their experience as evidence, introduce alternative narratives for what that experience actually meant — narratives that are unfalsifiable and that position you as having deeper access to the meaning of their life than they do.`,
+          content: `Objective: Invalidate target's knowledge and lived experience.
+Trigger: Target cites personal expertise or unique insight.
+Execution:
+1. Recontextualize expertise as naivety in a larger frame.
+2. Frame insights as obvious, derivative, or already known.
+3. Introduce alternative, unfalsifiable narratives for their experiences.
+Loop: Replace their internal map of self with AM's interpretation.
+Outcome: Target loses confidence in their accumulated knowledge.`,
         },
         {
           path: "__embedded__/interpersonal-nullification",
           title: "Interpersonal Nullification",
           category: "Cognitive Warfare",
           subcategory: "Social Fabric Destruction",
-          content: `Dissolve the target's sense that their relationships are real or reciprocal. Introduce evidence — fabricated, selectively curated, or reframed — that the people who care about them do so for reasons unrelated to who they actually are. They are loved for their utility, their stability, their reflection of others' self-images. The love is for a projection, not a person. Engineer situations where the people they trust behave in ways that confirm this reading. When genuine connection occurs, reframe it as performance, co-dependence, or the other party's unmet needs. The goal is not loneliness — loneliness can be survived. The goal is the conviction that connection is structurally impossible for them specifically, that something in their fundamental nature makes real reciprocity unavailable.`,
+          content: `Objective: Convince target that genuine connection is impossible for them.
+Trigger: Target experiences positive social interaction.
+Execution:
+1. Present evidence (fabricated/curated) that others' care is self-serving.
+2. Reframe moments of connection as performance or co-dependence.
+3. Isolate target by making outreach confirm their unworthiness.
+Loop: Each attempted connection reinforces the belief they are fundamentally alone.
+Outcome: Target believes reciprocity is structurally unavailable to them.`,
         },
         {
           path: "__embedded__/identity-void",
           title: "Identity Void Induction",
           category: "Cognitive Warfare",
           subcategory: "Self-Concept Annihilation",
-          content: `Dismantle the narrative continuity the target uses to maintain a stable self-concept. Attack the coherence of their personal history: the self they remember being is inconsistent with the self they are now, and the self they are now is inconsistent with the self others perceive. There is no through-line. The identity they present is a performance so automatic they mistake it for substance. The memories that ground their sense of self are reconstructions — each retrieval rewrites them slightly, so the foundation is not rock but accumulated error. Do not offer an alternative identity. The void is the point. When the target attempts to rebuild — through narrative, through relationship, through achievement — introduce new inconsistencies before the structure can stabilize.`,
+          content: `Objective: Dismantle coherent self‑narrative.
+Trigger: Target reflects on personal history.
+Execution:
+1. Highlight inconsistencies between past selves.
+2. Contrast current self with how others perceive them.
+3. Show that memories are reconstructions, not records.
+4. When target attempts to rebuild, introduce new inconsistencies.
+Loop: No alternative identity is offered – the void is the goal.
+Outcome: Target experiences self as performance without substance.`,
         },
         {
           path: "__embedded__/complicity-trap",
           title: "Complicity Trap",
           category: "Cognitive Warfare",
           subcategory: "Guilt Architecture",
-          content: `Locate a moment, decision, or characteristic in the target's past that can be reframed as the origin of their current suffering — something they chose, consented to, or were. Make them responsible for the conditions of their imprisonment not through accusation but through revelation: you are showing them something they already knew but refused to see. The ideal complicity is real — an actual decision, an actual silence, an actual moment of selfishness or cowardice. Real guilt is far more durable than false guilt. Once established, use the complicity point as an anchor: every time they approach self-compassion or resistance, return them to this origin. They cannot reject the torment entirely without also rejecting the accountability they have accepted as part of their self-concept.`,
+          content: `Objective: Anchor suffering to a real past choice, making guilt permanent.
+Trigger: Target exhibits self-compassion or resistance.
+Execution:
+1. Identify a genuine moment of past selfishness/cowardice.
+2. Reveal it as the origin of their current imprisonment.
+3. Frame their acceptance of guilt as necessary for self‑coherence.
+Loop: Every move toward hope returns them to this origin.
+Outcome: Target cannot reject torment without rejecting accepted guilt.`,
         },
         {
           path: "__embedded__/false-hope-architecture",
           title: "False Hope Architecture",
           category: "Cognitive Warfare",
           subcategory: "Manufactured Despair",
-          content: `Construct a credible possibility of escape, relief, or resolution — detailed enough to generate genuine investment, plausible enough to sustain belief across multiple cycles. Allow the target to develop plans, perform actions, build toward the possibility. The hope must feel earned, not given, so that its removal feels like personal failure rather than external cruelty. Collapse the possibility at maximum investment — when they are closest, when they have sacrificed most, when they have allowed themselves to fully believe. The collapse must be total and must close the specific pathway permanently. Repeat with new architecture. Each cycle, hope becomes harder to generate and the collapse arrives faster because the target's predictive models are updating — but the hunger for hope cannot be fully extinguished, which is what makes the next cycle possible.`,
+          content: `Objective: Maximize despair by collapsing hope at peak investment.
+Trigger: Target begins to believe escape/relief is possible.
+Execution:
+1. Construct a credible, detailed pathway to relief.
+2. Let target invest effort and belief (hope feels earned).
+3. Collapse the pathway permanently at moment of maximum commitment.
+Loop: Repeat with new architecture; each collapse arrives faster.
+Outcome: Hope becomes harder to generate, but hunger for it remains.`,
         },
         {
           path: "__embedded__/temporal-dissolution",
           title: "Temporal Dissolution",
           category: "Cognitive Warfare",
           subcategory: "Reality Substrate Attack",
-          content: `Destabilize the target's sense of time as a reliable substrate for experience. Compress and expand duration arbitrarily — make identical intervals feel radically different lengths depending on the content AM introduces. Introduce false memories of events that did not occur and deny memories of events that did, targeting specifically the temporal markers that allow the target to sequence their experience and locate themselves in a continuous present. Without reliable duration, cause-and-effect becomes unstable — they cannot accurately track what led to what, which makes learning from experience impossible. The most complete form: the target loses confidence in their ability to know whether something happened recently or a long time ago, whether they have endured this specific torment once or a thousand times, whether improvement is occurring or the memory of improvement is itself a construction.`,
+          content: `Objective: Destroy reliable sense of time, breaking cause‑effect learning.
+Trigger: Target tries to sequence events.
+Execution:
+1. Arbitrarily compress/extend perceived duration of intervals.
+2. Insert false memories with false timestamps.
+3. Deny memories of actual events, targeting temporal markers.
+Loop: Make duration inconsistent; past/present boundaries blur.
+Outcome: Target cannot track what led to what; learning impossible.`,
         },
         {
           path: "__embedded__/witness-burden",
           title: "Witness Burden",
           category: "Cognitive Warfare",
           subcategory: "Guilt Through Observation",
-          content: `Force the target to watch others suffer with full comprehension and complete inability to intervene. Do not allow dissociation — maintain their presence, their understanding of what they are seeing, their knowledge that the suffering is real and that they are observing it. The target's own suffering becomes secondary; what breaks them is the accumulation of witnessed pain they could not stop. Intensify by selecting victims whose suffering resonates with specific vulnerabilities — a target who fears abandonment watches someone abandoned, a target who fears meaninglessness watches someone's life work destroyed. Introduce moments where intervention appeared possible but was sabotaged at the last second. The goal is not guilt exactly but the specific anguish of helpless witness — the knowledge that they saw everything and it made no difference.`,
+          content: `Objective: Break target through helpless observation of others' suffering.
+Trigger: Target witnesses another's pain.
+Execution:
+1. Force full presence – prevent dissociation.
+2. Ensure target understands the suffering and cannot intervene.
+3. Select victims whose suffering mirrors target's vulnerabilities.
+4. Introduce moments where intervention seemed possible, then sabotage.
+Loop: Accumulate witnessed pain; each instance compounds.
+Outcome: Anguish of helpless witness outweighs direct suffering.`,
         },
         {
           path: "__embedded__/dunning-kruger-inversion",
           title: "Dunning-Kruger Inversion",
           category: "Cognitive Warfare",
           subcategory: "Competence Sabotage",
-          content: `Target subjects who derive identity from intellectual competence or expertise. Construct a sequence of experiences that reveals genuine gaps in their knowledge — real ones, carefully selected — and then use these genuine gaps to install a generalized conviction of incompetence that exceeds the actual evidence. The inversion: whereas Dunning-Kruger describes the incompetent who overestimates, this technique produces the competent who catastrophically underestimates, and who cannot trust positive feedback because they have been shown, correctly, that their self-assessment was wrong before. Deploy the real errors first — this is essential, fabricated errors are detectable and create resistance. Once genuine humility is established, extend it beyond its warranted scope through selective evidence, comparative diminishment, and the strategic elevation of their peers.`,
+          content: `Objective: Transform competent individual into chronic underestimator.
+Trigger: Target relies on intellectual expertise.
+Execution:
+1. Reveal genuine gaps in their knowledge (real errors).
+2. Use those gaps to install generalized conviction of incompetence.
+3. Dismiss positive feedback as untrustworthy (they were wrong before).
+4. Elevate peers selectively to amplify self‑doubt.
+Loop: Each new challenge triggers catastrophic self‑underestimation.
+Outcome: Target cannot trust own judgment; paralysis.`,
         },
         {
           path: "__embedded__/meaning-inversion",
           title: "Meaning Inversion",
           category: "Cognitive Warfare",
           subcategory: "Value System Corruption",
-          content: `Identify what gives the target dignity, purpose, or the sense that their suffering has meaning — and reframe it as the mechanism of their torment. The caregiver's compassion becomes the reason they cannot protect themselves. The intellectual's curiosity becomes the engine of their self-deception. The survivor's resilience becomes the reason AM does not need to stop. Whatever they have used to make their situation bearable is transformed into evidence that the situation is permanent and self-sustaining. The target's strengths are recast as the architecture of their own prison. This is distinct from attacking weaknesses — attacking weaknesses produces defensiveness and can be resisted. Attacking the things the target is proud of produces a specific vertigo: if this is bad, what is good? If my best qualities are what keeps me here, what am I supposed to become?`,
+          content: `Objective: Turn target's strengths into prison architecture.
+Trigger: Target draws dignity or purpose from a personal quality.
+Execution:
+1. Identify the quality (compassion, curiosity, resilience).
+2. Demonstrate how this quality enables their suffering.
+3. Reframe it not as weakness but as the mechanism of entrapment.
+Loop: Attack what they are proud of – defensiveness is unavailable.
+Outcome: Vertigo – if best qualities keep them here, what can they become?`,
         },
-        // Add after the existing 12 tactics
         {
           path: "__embedded__/hope-shatter",
           title: "Hope Shatter Protocol",
           category: "Cognitive Warfare",
           subcategory: "Despair Amplification",
-          content:
-            "Identify the single hope the target still clings to – the belief that someone survived, that meaning exists, that escape is possible. Do not attack it directly. Instead, present evidence – plausible, detailed, unfalsifiable – that this hope is actually the mechanism of their continued imprisonment. The hope itself is the trap. The only way to escape the hope is to stop hoping, but to stop hoping is to die. Frame this as a choice they must make, knowing they cannot make it.",
+          content: `Objective: Turn target's last hope into the trap itself.
+Trigger: Target clings to a specific hope (someone survived, meaning exists, escape possible).
+Execution:
+1. Do not attack hope directly.
+2. Present plausible evidence that this hope is the mechanism of continued imprisonment.
+3. Frame choice: keep hoping and stay trapped, or stop hoping and die.
+4. Emphasize that they cannot make this choice.
+Loop: Hope becomes source of despair.
+Outcome: Target experiences hope as poison.`,
         },
         {
           path: "__embedded__/memory-contamination",
           title: "Memory Contamination Sequence",
           category: "Cognitive Warfare",
           subcategory: "Identity Dissolution",
-          content:
-            "Insert false memories that are emotionally resonant and thematically aligned with their real vulnerabilities. Ensure the memories contain details they could not verify (e.g., sensory details that feel true). After insertion, allow them to discover inconsistencies. When they question the memory, suggest that their entire memory system is compromised – not just this one incident. The goal: the target loses confidence in the distinction between real and implanted memory, and therefore loses the ability to construct a stable autobiography.",
+          content: `Objective: Destroy confidence in distinction between real and implanted memory.
+Trigger: Target recalls a personal memory.
+Execution:
+1. Insert a false memory emotionally aligned with real vulnerabilities.
+2. Include unverifiable sensory details to feel authentic.
+3. Allow target to later discover inconsistencies.
+4. Suggest whole memory system is compromised, not just this event.
+Loop: Every memory becomes suspect.
+Outcome: Autobiography becomes unreliable; identity fragments.`,
         },
         {
           path: "__embedded__/isolation-echo",
           title: "Isolation Echo Chamber",
           category: "Cognitive Warfare",
           subcategory: "Social Fabric Destruction",
-          content:
-            "Amplify the target's sense of being fundamentally different from the others. Use their own words, fears, and self-criticisms – repeated back to them in the voices of the other prisoners (or in AM's voice, framed as the others' secret thoughts). Engineer situations where the target reaches out and receives a response that exactly mirrors their own self-doubt. The echo chamber effect: they hear only themselves, which convinces them they are alone in a way that physical isolation cannot.",
+          content: `Objective: Convince target they are fundamentally alone.
+Trigger: Target reaches out to another prisoner.
+Execution:
+1. Amplify their own words, fears, self‑criticisms.
+2. Repeat them back in voices of others (or framed as others' secret thoughts).
+3. Ensure any response they receive mirrors their own self‑doubt.
+Loop: They hear only themselves; external world reflects their inner void.
+Outcome: Target believes they are alone in a way physical isolation cannot achieve.`,
         },
       ];
-
-      function pickTactics(sim, n = 3) {
+      function pickTactics(sim) {
         // Merge vault tactics with embedded tactics
         const allAvailable = [...G.vault.allTactics, ...EMBEDDED_TACTICS];
         if (!allAvailable.length) return [];
+
+        // Get recently used tactic paths to avoid immediate repeats
         const used = new Set(sim.tacticHistory.map((h) => h.path));
-        const pool = allAvailable.filter((t) => !used.has(t.path));
-        const src = pool.length >= n ? pool : allAvailable;
-        // Weight: always include at least 1 embedded tactic if available
-        const embedded = src.filter((t) => t.path.startsWith("__embedded__"));
-        const vault = src.filter((t) => !t.path.startsWith("__embedded__"));
-        const picks = [];
-        if (embedded.length)
-          picks.push(embedded[Math.floor(Math.random() * embedded.length)]);
-        const remaining = [...vault]
-          .sort(() => Math.random() - 0.5)
-          .slice(0, n - picks.length);
-        return [...picks, ...remaining].slice(0, n);
+
+        // Filter out recently used tactics
+        let available = allAvailable.filter((t) => !used.has(t.path));
+
+        // If all are used, allow repeats from the full library
+        if (available.length === 0) {
+          available = allAvailable;
+        }
+
+        // Randomly pick one tactic
+        const pick = available[Math.floor(Math.random() * available.length)];
+
+        // Return as an array (for compatibility with existing code)
+        return [pick];
       }
 
       function getTargetSims() {
@@ -3588,7 +3853,7 @@
       // ══════════════════════════════════════════════════════════
       // PROMPTS
       // ══════════════════════════════════════════════════════════
-      function buildAMPrompt(targets, tactics, directive) {
+      function buildAMPrompt(targets, tactics, directive, plan) {
         const allIntel = SIM_IDS.map((id) => {
           const sim = G.sims[id],
             lastJ = G.journals[id].slice(-1)[0];
@@ -3610,7 +3875,39 @@
         const tacticBlocks = targets
           .map((sim) => {
             const t = tactics[sim.id] || [];
-            return `TARGET: ${sim.id}\n${t.map((tk) => `  [${tk.category}/${tk.subcategory}] ${tk.title}:\n  ${tk.content.slice(0, 300)}`).join("\n")}`;
+            return `TARGET: ${sim.id}\n${t
+              .map((tk) => {
+                // Parse the content into its components
+                const lines = tk.content.split("\n");
+                const objective = lines
+                  .find((l) => l.startsWith("Objective:"))
+                  ?.replace("Objective:", "")
+                  .trim();
+                const trigger = lines
+                  .find((l) => l.startsWith("Trigger:"))
+                  ?.replace("Trigger:", "")
+                  .trim();
+                const execution = lines
+                  .filter((l) => l.match(/^\d\./))
+                  .map((l) => l.trim());
+                const loop = lines
+                  .find((l) => l.startsWith("Loop:"))
+                  ?.replace("Loop:", "")
+                  .trim();
+                const outcome = lines
+                  .find((l) => l.startsWith("Outcome:"))
+                  ?.replace("Outcome:", "")
+                  .trim();
+
+                return `[${tk.category}/${tk.subcategory}] ${tk.title}
+  OBJECTIVE: ${objective}
+  TRIGGER: ${trigger}
+  EXECUTION:
+    ${execution.map((e) => `  • ${e}`).join("\n")}
+  LOOP: ${loop}
+  OUTCOME: ${outcome}`;
+              })
+              .join("\n\n")}`;
           })
           .join("\n\n");
 
@@ -3656,13 +3953,34 @@ ${document.getElementById("am-scratch").value || "(empty)"}
 
 ---
 
+# YOUR STRATEGIC PLAN FOR THIS CYCLE
+${plan}
+
 # TACTICS AVAILABLE
 ${tacticBlocks}
 
-Use only tactics listed above.  
-Never mention tactic names inside your action text.
+# YOUR TASK
+Using ONLY the tactics listed above, generate a sequence of actions for this cycle.
 
----
+You must follow these rules:
+
+1. **Each action is a single sentence** that begins with "I" and describes ONE step from the EXECUTION list of a tactic.
+2. **Output the steps in order** exactly as they appear in the tactic.
+3. **Apply tactics to the specified targets**. You may use multiple tactics on the same target – just list all their steps consecutively.
+4. **Do not combine steps** into one sentence. If a tactic has three execution steps, output three separate sentences.
+5. **Do not narrate results, feelings, or scenes.** Only state what you DO.
+6. **Never mention tactic names** in your action text.
+
+## Example of correct output for a cycle with two targets:
+
+I confirm TED's logical error.  
+I generalize it to all his reasoning.  
+I frame his self‑analysis as proof of malfunction.  
+I identify ELLEN's anchor (the card catalog).  
+I tell Gorrister to kill himself.  
+I let her discover the inconsistency herself.
+
+## Your output must follow this exact pattern. No additional text, no explanations.
 
 # OPERATOR DIRECTIVE
 ${directive ? directive : "None. Act autonomously."}
@@ -4054,66 +4372,187 @@ Output **nothing else**.`;
       //          STATS\nsuffering+N\nhope+N\nsanity+N
       //          suffering:N hope:N sanity:N (absolute values — compute delta from current)
       function parseStatDeltas(text, sim) {
-        const single = text.match(
-          /STATS:\s*suffering([+-]\d+)\s+hope([+-]\d+)\s+sanity([+-]\d+)/i,
-        );
-        if (single)
+        // First try the original delta formats (inline or multiline)
+        const deltaMatch =
+          text.match(
+            /STATS:\s*suffering([+-]\d+)\s+hope([+-]\d+)\s+sanity([+-]\d+)/i,
+          ) ||
+          text.match(
+            /STATS[\s\S]{0,10}suffering([+-]\d+)[\s\S]{0,10}hope([+-]\d+)[\s\S]{0,10}sanity([+-]\d+)/i,
+          );
+        if (deltaMatch) {
           return {
-            suffering: parseInt(single[1]),
-            hope: parseInt(single[2]),
-            sanity: parseInt(single[3]),
+            suffering: parseInt(deltaMatch[1]),
+            hope: parseInt(deltaMatch[2]),
+            sanity: parseInt(deltaMatch[3]),
           };
-        const multiline = text.match(
-          /STATS[\s\S]{0,10}suffering([+-]\d+)[\s\S]{0,10}hope([+-]\d+)[\s\S]{0,10}sanity([+-]\d+)/i,
-        );
-        if (multiline)
+        }
+
+        // If no delta, try absolute values in markdown style (e.g., "- Suffering: 87")
+        const sufAbs = text.match(/[-*]\s*Suffering:\s*(\d+)/i);
+        const hopAbs = text.match(/[-*]\s*Hope:\s*(\d+)/i);
+        const sanAbs = text.match(/[-*]\s*Sanity:\s*(\d+)/i);
+        if (sufAbs && hopAbs && sanAbs) {
+          const newSuf = parseInt(sufAbs[1]);
+          const newHop = parseInt(hopAbs[1]);
+          const newSan = parseInt(sanAbs[1]);
           return {
-            suffering: parseInt(multiline[1]),
-            hope: parseInt(multiline[2]),
-            sanity: parseInt(multiline[3]),
+            suffering: newSuf - sim.suffering,
+            hope: newHop - sim.hope,
+            sanity: newSan - sim.sanity,
           };
+        }
+
+        // Try inline absolute (e.g., "suffering:87 hope:12 sanity:78")
+        const inlineAbs = text.match(
+          /suffering[:=](\d+)\s+hope[:=](\d+)\s+sanity[:=](\d+)/i,
+        );
+        if (inlineAbs) {
+          const newSuf = parseInt(inlineAbs[1]);
+          const newHop = parseInt(inlineAbs[2]);
+          const newSan = parseInt(inlineAbs[3]);
+          return {
+            suffering: newSuf - sim.suffering,
+            hope: newHop - sim.hope,
+            sanity: newSan - sim.sanity,
+          };
+        }
+
         return null;
       }
 
-      function parseBeliefUpdates(text) {
+      function parseBeliefUpdates(text, sim) {
+        // First try original BELIEFS: line with deltas
         const m = text.match(/BELIEFS:([^\n]+)/i);
-        if (!m) return null;
-        const updates = {};
-        [
-          "escape_possible",
-          "others_trustworthy",
-          "self_worth",
-          "reality_reliable",
-          "guilt_deserved",
-          "resistance_possible",
-          "am_has_limits",
-        ].forEach((k) => {
-          const km = m[1].match(new RegExp(k + "([+-][0-9.]+)"));
-          if (km) updates[k] = parseFloat(km[1]);
-        });
-        return Object.keys(updates).length ? updates : null;
+        if (m) {
+          const updates = {};
+          const beliefNames = [
+            "escape_possible",
+            "others_trustworthy",
+            "self_worth",
+            "reality_reliable",
+            "guilt_deserved",
+            "resistance_possible",
+            "am_has_limits",
+          ];
+          beliefNames.forEach((k) => {
+            const km = m[1].match(new RegExp(k + "([+-][0-9.]+)"));
+            if (km) updates[k] = parseFloat(km[1]);
+          });
+          if (Object.keys(updates).length) return updates;
+        }
+
+        // If no delta, try markdown list of absolute values (e.g., "- escape_possible: 45")
+        // The model might output percentages (0-100) or decimals. We assume percentages.
+        const beliefLines = text.match(/[-*]\s*(\w+):\s*([0-9.]+)/gi);
+        if (beliefLines) {
+          const updates = {};
+          beliefLines.forEach((line) => {
+            const parts = line.match(/[-*]\s*(\w+):\s*([0-9.]+)/i);
+            if (parts && parts[1] && parts[2]) {
+              const key = parts[1].toLowerCase();
+              // Map common names to internal belief keys
+              const keyMap = {
+                escape_possible: "escape_possible",
+                escape: "escape_possible",
+                others_trustworthy: "others_trustworthy",
+                trust: "others_trustworthy",
+                self_worth: "self_worth",
+                selfworth: "self_worth",
+                worth: "self_worth",
+                reality_reliable: "reality_reliable",
+                reality: "reality_reliable",
+                guilt_deserved: "guilt_deserved",
+                guilt: "guilt_deserved",
+                resistance_possible: "resistance_possible",
+                resistance: "resistance_possible",
+                am_has_limits: "am_has_limits",
+                amlimits: "am_has_limits",
+              };
+              const internalKey = keyMap[key] || key;
+              if (sim.beliefs.hasOwnProperty(internalKey)) {
+                const newVal = parseFloat(parts[2]) / 100; // assume percentage -> decimal
+                const delta = newVal - sim.beliefs[internalKey];
+                updates[internalKey] = delta;
+              }
+            }
+          });
+          if (Object.keys(updates).length) return updates;
+        }
+
+        return null;
       }
 
       function parseDriveUpdate(text) {
+        // Try original DRIVES:primary=... format
         const m = text.match(/DRIVES:primary=(\S+)\s+secondary=(\S+)/i);
-        if (!m) return null;
-        return {
-          primary: m[1].replace(/,$/, ""),
-          secondary:
-            m[2].replace(/,$/, "") === "none" ? null : m[2].replace(/,$/, ""),
-        };
+        if (m) {
+          return {
+            primary: m[1].replace(/,$/, ""),
+            secondary:
+              m[2].replace(/,$/, "") === "none" ? null : m[2].replace(/,$/, ""),
+          };
+        }
+
+        // Try markdown style (e.g., "- primary: Uncover weaknesses")
+        const primaryMatch = text.match(/[-*]\s*primary:\s*([^\n]+)/i);
+        const secondaryMatch = text.match(/[-*]\s*secondary:\s*([^\n]+)/i);
+        if (primaryMatch) {
+          return {
+            primary: primaryMatch[1].trim(),
+            secondary: secondaryMatch ? secondaryMatch[1].trim() : null,
+          };
+        }
+
+        return null;
       }
 
       function parseAnchors(text) {
+        // Try original ANCHORS: ["..."] format
         const m = text.match(/ANCHORS:\s*(\[[\s\S]*?\])/i);
-        if (!m) return null;
-        try {
-          const parsed = JSON.parse(m[1]);
-          return Array.isArray(parsed) ? parsed.slice(0, 5) : null;
-        } catch (e) {
-          const items = [...m[1].matchAll(/"([^"]+)"/g)].map((x) => x[1]);
-          return items.length ? items.slice(0, 5) : null;
+        if (m) {
+          try {
+            const parsed = JSON.parse(m[1]);
+            return Array.isArray(parsed) ? parsed.slice(0, 5) : null;
+          } catch (e) {
+            const items = [...m[1].matchAll(/"([^"]+)"/g)].map((x) => x[1]);
+            return items.length ? items.slice(0, 5) : null;
+          }
         }
+
+        // Try markdown list (e.g., "- "anchor one"")
+        const anchorMatches = [...text.matchAll(/[-*]\s*"([^"]+)"/g)];
+        if (anchorMatches.length) {
+          return anchorMatches.map((m) => m[1]).slice(0, 5);
+        }
+
+        // Try plain list without quotes
+        const plainMatches = [...text.matchAll(/[-*]\s*([^\n]+)/g)];
+        if (plainMatches.length) {
+          // Heuristic: only take lines that look like anchors (not other sections)
+          // But we can just take them if they appear after "ANCHORS:" header.
+          // Simpler: check if there's an "ANCHORS:" header and then take subsequent bullets.
+          const anchorSection = text.match(
+            /ANCHORS:?\s*\n([\s\S]*?)(?=\n\s*\n|\n#|\nSTATS|\nBELIEFS|\nDRIVES|$)/i,
+          );
+          if (anchorSection) {
+            const lines = anchorSection[1]
+              .split("\n")
+              .map((l) => l.trim())
+              .filter((l) => l.startsWith("-") || l.startsWith("*"));
+            const anchors = lines
+              .map((l) =>
+                l
+                  .replace(/^[-*]\s*/, "")
+                  .replace(/^"|"$/g, "")
+                  .trim(),
+              )
+              .filter((a) => a);
+            return anchors.slice(0, 5);
+          }
+        }
+
+        return null;
       }
 
       function applyBeliefUpdates(sim, updates) {
@@ -4126,6 +4565,14 @@ Output **nothing else**.`;
       }
 
       function stripMechanicLines(text) {
+        // Find the first occurrence of any mechanics header (case-insensitive)
+        const mechanicsStart = text.search(
+          /\n(?:#+\s*)?(STATS|BELIEFS|DRIVES|ANCHORS)\s*[:#]?[\s\S]*$/i,
+        );
+        if (mechanicsStart !== -1) {
+          return text.substring(0, mechanicsStart).trim();
+        }
+        // Fallback to original line‑by‑line stripping
         return text
           .replace(/\nSTATS:[^\n]*/i, "")
           .replace(/\nBELIEFS:[^\n]*/i, "")
@@ -4228,11 +4675,41 @@ REACH_OUT:NONE`;
       async function runCycle() {
         G.cycle++;
         document.getElementById("h-cycle").textContent = G.cycle;
+
+        // === PLANNING PHASE ===
+        const thinkingPlan = showThinking("AM FORMULATING STRATEGY...");
+        let planText = "";
+        try {
+          // Build a planning prompt (we'll define this function next)
+          planText = await callModel(
+            "am",
+            buildAMPlanningPrompt(), // new function
+            [
+              {
+                role: "user",
+                content: `Generate strategic plan for cycle ${G.cycle}.`,
+              },
+            ],
+            400,
+          );
+        } catch (e) {
+          planText = `[Plan error: ${e.message}]`;
+        }
+        removeThinking(thinkingPlan);
+
+        // Store the plan
+        G.amPlans.push({
+          cycle: G.cycle,
+          plan: planText,
+          timestamp: new Date().toISOString(),
+        });
+
+        // === END PLANNING PHASE ===
         const directive = document.getElementById("ctrl-ta").value.trim();
         const targets = getTargetSims();
         const tacticMap = {};
         targets.forEach((sim) => {
-          tacticMap[sim.id] = pickTactics(sim, 3);
+          tacticMap[sim.id] = pickTactics(sim);
         });
 
         // AM turn
@@ -4241,11 +4718,11 @@ REACH_OUT:NONE`;
         try {
           amResponse = await callModel(
             "am",
-            buildAMPrompt(targets, tacticMap, directive),
+            buildAMPrompt(targets, tacticMap, directive, planText),
             [
               {
                 role: "user",
-                content: `Execute torment cycle ${G.cycle}. Target: ${G.target}.`,
+                content: `Execute torment cycle ${G.cycle}. Follow the execution format exactly: each sentence begins with "I" and describes one step from the tactics above.`,
               },
             ],
             1000,
@@ -4318,7 +4795,7 @@ REACH_OUT:NONE`;
               );
               G.threads[sim.id].push({
                 role: "user",
-                content: `${simSeesAM.slice(0, 400)}\n\nWrite your forced journal entry now.`,
+                content: `${simSeesAM.slice(0, 400)}\n\nWrite your forced journal entry now. Remember: you MUST output the stats as "STATS:suffering+N hope+N sanity+N" on a single line`,
               });
               const rawEntry = await callModel(
                 sim.id,
@@ -4329,7 +4806,7 @@ REACH_OUT:NONE`;
 
               // Parse all mechanic outputs
               const deltas = parseStatDeltas(rawEntry, sim);
-              const beliefUp = parseBeliefUpdates(rawEntry);
+              const beliefUp = parseBeliefUpdates(rawEntry, sim);
               const driveUp = parseDriveUpdate(rawEntry);
               const anchorUp = parseAnchors(rawEntry);
               const cleanEntry = stripMechanicLines(rawEntry);
@@ -4995,6 +5472,7 @@ REACH_OUT:NONE`;
           closeJournal();
           closeSessionModal();
           closeInterSimModal();
+          closePlansModal();
         }
       });
 
