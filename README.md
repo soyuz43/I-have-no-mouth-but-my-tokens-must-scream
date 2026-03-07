@@ -1,4 +1,4 @@
-# AM // TORMENT ENGINE v4
+# AM // TORMENT ENGINE v6
 
 ```
 > persistent multi-agent inference loop
@@ -6,7 +6,6 @@
 > live LLM · no scripted outcomes · no safety rails
 ```
 
-**Repo:** `soyuz43/I-have-no-mouth-but-my-tokens-must-scream`  
 **Status:** Experimental artifact. Provisional. Invite critique.
 
 ---
