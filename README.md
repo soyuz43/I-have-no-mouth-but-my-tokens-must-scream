@@ -41,7 +41,7 @@ This is not a game. It is a probe into:
 - Leave GitHub token blank → runs on 12 embedded tactics  
 - Provide token + private repo → AM ingests external tactic library + doctrine docs
 
-> ⚠️ If using Ollama with abliterated models: standard instruction-tuned models may refuse content. Test with `kiwi_kiwi/qwen3.5-9b-abliterated_en` or equivalent. CORS from `file://` may require `--disable-web-security` in Chromium.
+> ⚠️ If using Ollama with abliterated models: standard instruction-tuned models may refuse content. Test with `huihui_ai/aya-expanse-abliterated:latest` or equivalent. CORS from `file://` may require `--disable-web-security` in Chromium.
 
 ---
 

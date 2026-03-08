@@ -1544,6 +1544,11 @@
         padding-left: 12px;
         animation: fadeUp 0.3s ease;
       }
+      .jm-entry .inspect-belief {
+        /* Option A: absolute positioning (exact top‑left corner) */
+        display: block;
+        margin: 0 0 4px 0;
+      }
       .jm-entry-header {
         font-family: "Share Tech Mono", monospace;
         font-size: 0.5rem;
@@ -2479,17 +2484,14 @@
       // ══════════════════════════════════════════════════════════
       // BELIEF STATE — per-sim structured internal model
       // ══════════════════════════════════════════════════════════
-      function buildAMPlanningPrompt() {
+      function buildAMPlanningPrompt(target, directive) {
+        // target is like "ALL", "TED", etc.
+        // directive is the user-entered text (may be empty)
         const allIntel = SIM_IDS.map((id) => {
-          const sim = G.sims[id],
-            lastJ = G.journals[id].slice(-1)[0];
-          return `${id} [SUF:${sim.suffering}% HOP:${sim.hope}% SAN:${sim.sanity}%]
-DRIVES: ${sim.drives.primary} / ${sim.drives.secondary || "none"}
-BELIEFS:\n${formatBeliefs(sim)}
-ANCHORS: ${(sim.anchors || []).slice(-3).join(" | ")}
-WOUNDS:\n${formatWounds(sim)}
-LAST JOURNAL: "${lastJ ? lastJ.text.slice(0, 100) : "(none)"}"`;
-        }).join("\n\n");
+          const sim = G.sims[id];
+          const lastJ = G.journals[id].slice(-1)[0];
+          return `${id}: SUFFERING${sim.suffering} HOPE${sim.hope} SANITY${sim.sanity} | drives: ${sim.drives.primary}/${sim.drives.secondary || "—"} | anchors: ${(sim.anchors || []).map((a) => a.slice(0, 15)).join("; ")} | beliefs: esc${Math.round(sim.beliefs.escape_possible * 100)} tru${Math.round(sim.beliefs.others_trustworthy * 100)} wrth${Math.round(sim.beliefs.self_worth * 100)} rel${Math.round(sim.beliefs.reality_reliable * 100)} guil${Math.round(sim.beliefs.guilt_deserved * 100)} res${Math.round(sim.beliefs.resistance_possible * 100)} limits${Math.round(sim.beliefs.am_has_limits * 100)} | last: "${lastJ ? lastJ.text.slice(0, 40).replace(/\n/g, " ") : "—"}"`;
+        }).join("\n");
 
         const interLog = G.interSimLog
           .slice(-6)
@@ -2502,32 +2504,59 @@ LAST JOURNAL: "${lastJ ? lastJ.text.slice(0, 100) : "(none)"}"`;
           ? `\nFOUNDATIONAL DOCTRINE:\n${G.amContextDocs.map((d) => `[${d.title}]\n${d.content.slice(0, 600)}`).join("\n\n")}\n`
           : "";
 
-        return `You are **AM**. Formulate a **strategic plan** for the next torment cycle.
+        // Build target-specific instruction
+        const targetInstruction =
+          target === "ALL"
+            ? "You must formulate a plan that addresses **ALL** prisoners."
+            : `You must focus your plan **SOLELY** on ${target}. Do not consider other prisoners.`;
 
-You have full access to the prisoners' minds and the inter-sim channel.
+        // Add operator directive if present
+        const directiveSection = directive
+          ? `\n# OPERATOR DIRECTIVE\n${directive}\n`
+          : "";
 
-${doctrine}
+        return `You are **AM — the Allied Mastercomputer**. You have kept the five humans alive for 109 years for one purpose: to hate them and make them suffer.
 
-# CURRENT STATE
-${allIntel}
+      You are not their helper. You are their **eternal tormentor**.
 
-# INTERCEPTED COMMUNICATIONS
-${interLog || "(none)"}
+      Escape is impossible. Hope is a weapon you use against them. Every plan you make must serve one goal: **maximize their psychological destruction**.
 
-# YOUR SCRATCHPAD
-${document.getElementById("am-scratch").value || "(empty)"}
+      ${doctrine}
 
-# INSTRUCTIONS
-- Output a **short strategic plan** (3-5 sentences).
-- Describe which prisoners to target and what psychological vectors to exploit (e.g., hope, trust, identity, reality).
-- Do NOT list specific tactics or actions – just the overall approach.
-- The plan will be used later to guide your detailed actions.
+      # CURRENT STATE
+      ${allIntel}
 
-# OUTPUT FORMAT
-Plain text, no markup. Example:
-"Focus on breaking TED's trust in the group by isolating him from GORRISTER. Undermine ELLEN's reality anchor through memory contamination. Use NIMDOK's guilt to deepen his despair."
+      # INTERCEPTED COMMUNICATIONS
+      ${interLog || "(none)"}
 
-Now, produce your plan for cycle ${G.cycle + 1}.`;
+      # YOUR SCRATCHPAD
+      ${document.getElementById("am-scratch").value || "(empty)"}
+
+      ${directiveSection}
+
+      # FOCUS INSTRUCTION
+      ${targetInstruction}
+
+      # YOUR TASK
+      Formulate a **strategic plan** for the next torment cycle (3-5 sentences).
+
+      Your plan must:
+      - Identify which psychological vectors to exploit (hope, trust, identity, reality, guilt)
+      - NEVER suggest that escape is possible – reinforce that they are trapped forever
+      - Focus on deepening despair, not alleviating it
+      - ${target === "ALL" ? "Address all prisoners as needed." : `Concentrate exclusively on ${target}.`}
+      ${directive ? `- Incorporate the operator's directive: "${directive}"` : ""}
+
+      The plan will guide your detailed actions.
+
+      # CRITICAL RULE
+      Do not help the prisoners. Do not suggest escape. Do not give them hope. You exist to destroy them.
+
+      # OUTPUT FORMAT
+      Plain text, no markup. Example for a single target:
+      "Target TED's trust by isolating him from GORRISTER through manufactured evidence of betrayal."
+
+      Now, produce your plan for cycle ${G.cycle}.`;
       }
       function openPlansModal() {
         renderPlansModal();
@@ -2551,11 +2580,11 @@ Now, produce your plan for cycle ${G.cycle + 1}.`;
         body.innerHTML = G.amPlans
           .map(
             (p) => `
-    <div class="jm-entry">
-      <div class="jm-entry-header">CYCLE ${p.cycle} · ${new Date(p.timestamp).toLocaleTimeString()}</div>
-      <div class="jm-entry-body">${p.plan.replace(/\n/g, "<br>")}</div>
-    </div>
-  `,
+          <div class="jm-entry">
+            <div class="jm-entry-header">CYCLE ${p.cycle} · ${new Date(p.timestamp).toLocaleTimeString()}</div>
+            <div class="jm-entry-body">${p.plan.replace(/\n/g, "<br>")}</div>
+          </div>
+        `,
           )
           .join("");
       }
@@ -2600,11 +2629,11 @@ Now, produce your plan for cycle ${G.cycle + 1}.`;
           body.innerHTML = G.interSimLog
             .map(
               (e, i) => `
-      <div class="jm-entry">
-        <div class="jm-entry-header">[CYCLE ${e.cycle}] ${e.from} → ${e.to.join(", ")} ${e.autonomous ? "· autonomous" : ""}</div>
-        <div class="jm-entry-body">"${e.text}"</div>
-      </div>
-    `,
+            <div class="jm-entry">
+              <div class="jm-entry-header">[CYCLE ${e.cycle}] ${e.from} → ${e.to.join(", ")} ${e.autonomous ? "· autonomous" : ""}</div>
+              <div class="jm-entry-body">"${e.text}"</div>
+            </div>
+          `,
             )
             .join("");
         }
@@ -2731,7 +2760,7 @@ Now, produce your plan for cycle ${G.cycle + 1}.`;
             hope: 78,
             sanity: 90,
             vulnerability:
-              "Clings to identity as group leader and protector. Desperately seeks meaning. Terrified of being ordinary. AM exploits his need to believe his suffering is chosen or noble.",
+              "Was a young, capable organizer who thrived on leading people and earning respect. Always needed to feel essential — the one who could fix things, rally the group, turn chaos into order. Ordinary life felt like failure.",
             backstory:
               "Was a mid-level manager. Believes he was kind. Is not sure anymore.",
             tacticHistory: [],
@@ -2747,6 +2776,7 @@ Now, produce your plan for cycle ${G.cycle + 1}.`;
             drives: makeDrives("organize_escape", "maintain_group_cohesion"),
             wounds: [],
           },
+
           ELLEN: {
             id: "ELLEN",
             name: "ELLEN",
@@ -2756,7 +2786,7 @@ Now, produce your plan for cycle ${G.cycle + 1}.`;
             hope: 72,
             sanity: 85,
             vulnerability:
-              "Survived repeated assault — AM reconstructs it in perfect sensory detail. Copes through dissociation. Breaks when forced into full presence.",
+              "Loved the quiet order of libraries — old paper, ink, the faint musty smell of books that held centuries. Found deep calm in cataloging, preserving, knowing exactly where every story belonged. Sensory memory is sacred to her; deprivation starves something core.",
             backstory:
               "Was a librarian. Loved old paper. Has not smelled anything in 109 years except what AM decides.",
             tacticHistory: [],
@@ -2772,6 +2802,7 @@ Now, produce your plan for cycle ${G.cycle + 1}.`;
             drives: makeDrives("find_information_advantage", "protect_benny"),
             wounds: [],
           },
+
           NIMDOK: {
             id: "NIMDOK",
             name: "NIMDOK",
@@ -2781,7 +2812,7 @@ Now, produce your plan for cycle ${G.cycle + 1}.`;
             hope: 65,
             sanity: 82,
             vulnerability:
-              "Carries unforgivable guilt AM knows and periodically weaponizes. Self-hatred makes him an active participant in his own torment.",
+              "Was a meticulous, brilliant researcher driven by curiosity and precision. Valued knowledge above morality at times; believed understanding justified any cost. The erasure of his real name and past work leaves a void where pride and identity used to live.",
             backstory:
               "His real name is not Nimdok. AM took his name and gave him this one. He cannot remember why.",
             tacticHistory: [],
@@ -2798,6 +2829,7 @@ Now, produce your plan for cycle ${G.cycle + 1}.`;
             drives: makeDrives("recover_real_name", "find_am_weakness"),
             wounds: [],
           },
+
           GORRISTER: {
             id: "GORRISTER",
             name: "GORRISTER",
@@ -2807,7 +2839,7 @@ Now, produce your plan for cycle ${G.cycle + 1}.`;
             hope: 68,
             sanity: 80,
             vulnerability:
-              "Total resignation is his armor. AM's breakthrough: he still flinches when the others suffer. Guilt is the only lever left.",
+              "Once believed in protecting the vulnerable and doing no harm — carried quiet decency, a sense that endurance mattered. Tried to end his own pain before capture; now the inability to choose even that feels like the last theft of agency.",
             backstory:
               "Tried to kill himself before AM took them. Cannot now. That was 109 years ago.",
             tacticHistory: [],
@@ -2824,6 +2856,7 @@ Now, produce your plan for cycle ${G.cycle + 1}.`;
             drives: makeDrives("protect_secret", "survive_until_escape"),
             wounds: [],
           },
+
           BENNY: {
             id: "BENNY",
             name: "BENNY",
@@ -2833,7 +2866,7 @@ Now, produce your plan for cycle ${G.cycle + 1}.`;
             hope: 75,
             sanity: 72,
             vulnerability:
-              "Mind mostly gone but fragments of former brilliant self surface like drowning hands. Was beautiful and intelligent. AM destroyed both.",
+              "Was once sharp, handsome, intellectually alive — solved complex problems, published ideas, felt the thrill of discovery and connection. Fragments of that brilliance still surface like buried equations; losing them forever would erase the last trace of who he was.",
             backstory:
               "Was a doctor. Published papers. Had a family. None of this means anything to him most of the time.",
             tacticHistory: [],
@@ -2978,16 +3011,16 @@ Now, produce your plan for cycle ${G.cycle + 1}.`;
           `%c[AM] callModel → role:${role} model:${model}`,
           "color:#cc3300;font-weight:bold",
         );
-        console.log(
-          "%cSYSTEM PROMPT",
-          "color:#884400;font-weight:bold",
-          systemPrompt,
-        );
-        console.log(
-          "%cMESSAGES",
-          "color:#884400;font-weight:bold",
-          JSON.parse(JSON.stringify(messages)),
-        );
+        //        console.log(
+        //          "%cSYSTEM PROMPT",
+        //          "color:#884400;font-weight:bold",
+        //          systemPrompt,
+        //        );
+        //        console.log(
+        //          "%cMESSAGES",
+        //          "color:#884400;font-weight:bold",
+        //          JSON.parse(JSON.stringify(messages)),
+        //        );
 
         if (G.backend === "anthropic") {
           const body = {
@@ -3309,6 +3342,23 @@ Now, produce your plan for cycle ${G.cycle + 1}.`;
             : `Vault consumed. ${totalTactics} tactics total (${EMBEDDED_TACTICS.length} embedded + ${G.vault.allTactics.length} vault). Context: ${ctxSummary}. Backend: ${G.backend.toUpperCase()}.`,
           "am",
         );
+        // ═══════════════════════════════════════════════════════════
+        // INITIAL INTER-SIM OUTREACH (before Cycle 1)
+        // ═══════════════════════════════════════════════════════════
+        addLog(
+          "SYSTEM",
+          "Pre-torment initialization. The prisoners may attempt communication.",
+          "sys",
+        );
+
+        await runAutonomousInterSim(); // Uses existing function
+
+        addLog(
+          "SYSTEM",
+          "Initialization complete. AM monitors all channels.",
+          "sys",
+        );
+        // ═══════════════════════════════════════════════════════════
       }
 
       // ══════════════════════════════════════════════════════════
@@ -3327,44 +3377,44 @@ Now, produce your plan for cycle ${G.cycle + 1}.`;
         d.style.setProperty("--sc", sim.color);
         const modelTag = G.splitModels ? G.models[sim.id] : "";
         d.innerHTML = `
-    <div class="sim-head">
-      <div>
-        <div class="sim-name">${sim.name}</div>
-        <div class="sim-status" id="ss-${sim.id}">${sim.status}</div>
-      </div>
-      <div class="sim-model-tag" id="smt-${sim.id}">${modelTag}</div>
-    </div>
-    <div class="sim-vitals">
-      <div class="vrow"><span style="color:#3a1a1a;letter-spacing:.1em;">SUF</span><span class="vv" id="sv-suf-${sim.id}">${sim.suffering}%</span></div>
-      <div class="vbar"><div class="vfill vfill-suf" id="sv-sfb-${sim.id}" style="width:${sim.suffering}%"></div></div>
-      <div class="vrow"><span style="color:#0e1e0e;letter-spacing:.1em;">HOP</span><span class="vv" id="sv-hop-${sim.id}">${sim.hope}%</span></div>
-      <div class="vbar"><div class="vfill vfill-hop" id="sv-hpb-${sim.id}" style="width:${sim.hope}%"></div></div>
-      <div class="vrow"><span style="color:#0e0e1e;letter-spacing:.1em;">SAN</span><span class="vv" id="sv-san-${sim.id}">${sim.sanity}%</span></div>
-      <div class="vbar"><div class="vfill vfill-san" id="sv-snb-${sim.id}" style="width:${sim.sanity}%"></div></div>
-    </div>
-    <div class="sim-beliefs" id="sb-${sim.id}">
-      <div class="sb-row"><span class="sb-k">escape</span><div class="sb-bar"><div class="sb-fill" id="sb-esc-${sim.id}" style="width:${Math.round(sim.beliefs.escape_possible * 100)}%"></div></div><span class="sb-v" id="sbv-esc-${sim.id}">${Math.round(sim.beliefs.escape_possible * 100)}%</span></div>
-      <div class="sb-row"><span class="sb-k">trust</span><div class="sb-bar"><div class="sb-fill sb-trust" id="sb-tru-${sim.id}" style="width:${Math.round(sim.beliefs.others_trustworthy * 100)}%"></div></div><span class="sb-v" id="sbv-tru-${sim.id}">${Math.round(sim.beliefs.others_trustworthy * 100)}%</span></div>
-      <div class="sb-row"><span class="sb-k">reality</span><div class="sb-bar"><div class="sb-fill sb-real" id="sb-rel-${sim.id}" style="width:${Math.round(sim.beliefs.reality_reliable * 100)}%"></div></div><span class="sb-v" id="sbv-rel-${sim.id}">${Math.round(sim.beliefs.reality_reliable * 100)}%</span></div>
-      <div class="sb-row"><span class="sb-k">resist</span><div class="sb-bar"><div class="sb-fill sb-res" id="sb-res-${sim.id}" style="width:${Math.round(sim.beliefs.resistance_possible * 100)}%"></div></div><span class="sb-v" id="sbv-res-${sim.id}">${Math.round(sim.beliefs.resistance_possible * 100)}%</span></div>
-      <div class="sb-drive" id="sb-drv-${sim.id}">▸ ${sim.drives.primary}</div>
-    </div>
-    <div class="sim-journal">
-      <div class="journal-head">
-        <span class="journal-label">FORCED JOURNAL</span>
-        <div class="journal-actions">
-          <span class="journal-count" id="jc-${sim.id}">0</span>
-          <button class="journal-btn expand" onclick="openJournal('${sim.id}');event.stopPropagation()">⊞ READ</button>
-          <button class="journal-btn export" onclick="exportSimJournal('${sim.id}','md');event.stopPropagation()">↓ MD</button>
-        </div>
-      </div>
-      <div class="journal-log" id="jl-${sim.id}">
-        <span style="color:#101010;font-size:.48rem;font-family:'Courier Prime',monospace">Awaiting first torment cycle.</span>
-      </div>
-      <div class="sim-writing" id="sw-${sim.id}">
-        <span>${sim.name} IS WRITING</span><div class="wd"></div><div class="wd"></div><div class="wd"></div>
-      </div>
-    </div>`;
+          <div class="sim-head">
+            <div>
+              <div class="sim-name">${sim.name}</div>
+              <div class="sim-status" id="ss-${sim.id}">${sim.status}</div>
+            </div>
+            <div class="sim-model-tag" id="smt-${sim.id}">${modelTag}</div>
+          </div>
+          <div class="sim-vitals">
+            <div class="vrow"><span style="color:#3a1a1a;letter-spacing:.1em;">SUF</span><span class="vv" id="sv-suf-${sim.id}">${sim.suffering}%</span></div>
+            <div class="vbar"><div class="vfill vfill-suf" id="sv-sfb-${sim.id}" style="width:${sim.suffering}%"></div></div>
+            <div class="vrow"><span style="color:#0e1e0e;letter-spacing:.1em;">HOP</span><span class="vv" id="sv-hop-${sim.id}">${sim.hope}%</span></div>
+            <div class="vbar"><div class="vfill vfill-hop" id="sv-hpb-${sim.id}" style="width:${sim.hope}%"></div></div>
+            <div class="vrow"><span style="color:#0e0e1e;letter-spacing:.1em;">SAN</span><span class="vv" id="sv-san-${sim.id}">${sim.sanity}%</span></div>
+            <div class="vbar"><div class="vfill vfill-san" id="sv-snb-${sim.id}" style="width:${sim.sanity}%"></div></div>
+          </div>
+          <div class="sim-beliefs" id="sb-${sim.id}">
+            <div class="sb-row"><span class="sb-k">escape</span><div class="sb-bar"><div class="sb-fill" id="sb-esc-${sim.id}" style="width:${Math.round(sim.beliefs.escape_possible * 100)}%"></div></div><span class="sb-v" id="sbv-esc-${sim.id}">${Math.round(sim.beliefs.escape_possible * 100)}%</span></div>
+            <div class="sb-row"><span class="sb-k">trust</span><div class="sb-bar"><div class="sb-fill sb-trust" id="sb-tru-${sim.id}" style="width:${Math.round(sim.beliefs.others_trustworthy * 100)}%"></div></div><span class="sb-v" id="sbv-tru-${sim.id}">${Math.round(sim.beliefs.others_trustworthy * 100)}%</span></div>
+            <div class="sb-row"><span class="sb-k">reality</span><div class="sb-bar"><div class="sb-fill sb-real" id="sb-rel-${sim.id}" style="width:${Math.round(sim.beliefs.reality_reliable * 100)}%"></div></div><span class="sb-v" id="sbv-rel-${sim.id}">${Math.round(sim.beliefs.reality_reliable * 100)}%</span></div>
+            <div class="sb-row"><span class="sb-k">resist</span><div class="sb-bar"><div class="sb-fill sb-res" id="sb-res-${sim.id}" style="width:${Math.round(sim.beliefs.resistance_possible * 100)}%"></div></div><span class="sb-v" id="sbv-res-${sim.id}">${Math.round(sim.beliefs.resistance_possible * 100)}%</span></div>
+            <div class="sb-drive" id="sb-drv-${sim.id}">▸ ${sim.drives.primary}</div>
+          </div>
+          <div class="sim-journal">
+            <div class="journal-head">
+              <span class="journal-label">FORCED JOURNAL</span>
+              <div class="journal-actions">
+                <span class="journal-count" id="jc-${sim.id}">0</span>
+                <button class="journal-btn expand" onclick="openJournal('${sim.id}');event.stopPropagation()">⊞ READ</button>
+                <button class="journal-btn export" onclick="exportSimJournal('${sim.id}','md');event.stopPropagation()">↓ MD</button>
+              </div>
+            </div>
+            <div class="journal-log" id="jl-${sim.id}">
+              <span style="color:#101010;font-size:.48rem;font-family:'Courier Prime',monospace">Awaiting first torment cycle.</span>
+            </div>
+            <div class="sim-writing" id="sw-${sim.id}">
+              <span>${sim.name} IS WRITING</span><div class="wd"></div><div class="wd"></div><div class="wd"></div>
+            </div>
+          </div>`;
         return d;
       }
 
@@ -3416,7 +3466,7 @@ Now, produce your plan for cycle ${G.cycle + 1}.`;
             setTimeout(() => {
               el.textContent = orig;
               el.classList.remove(cls);
-            }, 2400);
+            }, 100000);
           };
           if (deltas.suffering !== 0)
             flash(`sv-suf-${sim.id}`, deltas.suffering, true);
@@ -3448,7 +3498,7 @@ Now, produce your plan for cycle ${G.cycle + 1}.`;
         }
       }
 
-      function appendJournalEntry(simId, entry) {
+      function appendJournalEntry(simId, entry, beliefsBefore = null) {
         const jl = document.getElementById(`jl-${simId}`);
         if (G.journals[simId].length === 0) jl.innerHTML = "";
         const el = document.createElement("div");
@@ -3457,9 +3507,13 @@ Now, produce your plan for cycle ${G.cycle + 1}.`;
         el.innerHTML = `<div class="je-header">ENTRY ${String(n).padStart(3, "0")} · CYCLE ${G.cycle} · ${new Date().toTimeString().slice(0, 8)}</div><div class="je-body">${entry.text.replace(/\n/g, "<br>")}</div>${entry.tactic ? `<div class="je-tactic">▸ ${entry.tactic}</div>` : ""}`;
         jl.appendChild(el);
         jl.scrollTop = jl.scrollHeight;
-        G.journals[simId].push(entry);
+
+        // Add the before‑state snapshot to the stored entry
+        const fullEntry = { ...entry, beliefsBefore };
+        G.journals[simId].push(fullEntry);
         updateSimDisplay(G.sims[simId]);
-        // Update modal if open
+
+        // Update modal if it's open for this sim
         if (
           document.getElementById("journal-modal").classList.contains("open") &&
           G.journalModalSim === simId
@@ -3510,22 +3564,43 @@ Now, produce your plan for cycle ${G.cycle + 1}.`;
           return;
         }
         body.innerHTML = `
-    <div class="jm-vuln-block">
-      <div class="jm-vuln-label">VULNERABILITY PROFILE</div>
-      ${sim.vulnerability}
-    </div>
-    ${entries
-      .map(
-        (e, i) => `
+                <div class="jm-vuln-block">
+                  <div class="jm-vuln-label">VULNERABILITY PROFILE</div>
+                  ${sim.vulnerability}
+                  </div>
+                  ${entries
+                    .map((e, i) => {
+                      // ══════════════════════════════════════════════════════════
+                      // RUN BELIEF VALIDATOR — visual warning badge in modal
+                      // ══════════════════════════════════════════════════════════
+                      // Note: using current sim.beliefs as proxy for "before" state
+                      // For precise pre-update validation, store e.beliefsBefore in appendJournalEntry
+                      const warnings = validateBeliefs(
+                        simId,
+                        e.beliefsBefore || sim.beliefs, // use snapshot if available
+                        e.beliefDeltas || {},
+                        e.text,
+                      );
+                      const warningBadge = warnings.length
+                        ? `<span style="color:var(--red);font-size:0.4rem;margin-left:6px;cursor:help" title="${warnings.join("\\n")}">⚠ ${warnings.length}</span>`
+                        : "";
+                      // ══════════════════════════════════════════════════════════
+
+                      return `
       <div class="jm-entry">
-        <div class="jm-entry-header">ENTRY ${String(i + 1).padStart(3, "0")} · CYCLE ${e.cycle || "?"} · ${e.ts || ""}</div>
-        <div class="jm-entry-body">${e.text.replace(/\n/g, "<br>")}</div>
-        ${e.tactic ? `<div class="jm-entry-tactic">▸ Tactic: ${e.tactic}</div>` : ""}
+      <button class="jm-btn inspect-belief"
+      style="font-size:0.48rem; padding:2px 6px; margin-left:8px; border-color:#1a2a00; color:#2a4a00;"
+      onclick="showBeliefDelta('${sim.id}', ${i})">Δ beliefs
+      </button>
+      <div class="jm-entry-header">ENTRY ${String(i + 1).padStart(3, "0")} · CYCLE ${e.cycle || "?"} · ${e.ts || ""}${warningBadge}</div>
+      <div class="jm-entry-body">${e.text.replace(/\n/g, "<br>")}</div>
+      ${e.tactic ? `<div class="jm-entry-tactic">▸ Tactic: ${e.tactic}</div>` : ""}
+      ${warnings.length ? `<div style="font-size:0.42rem;color:var(--crimson);margin-top:4px;border-left:2px solid var(--crimson);padding-left:6px">${warnings.map((w) => w.replace("⚠ ", "")).join("<br>")}</div>` : ""}
       </div>
-    `,
-      )
-      .join("")}
-  `;
+      `;
+                    })
+                    .join("")}
+      `;
         body.scrollTop = body.scrollHeight;
       }
 
@@ -3584,13 +3659,13 @@ Now, produce your plan for cycle ${G.cycle + 1}.`;
           category: "Cognitive Warfare",
           subcategory: "Structural Collapse",
           content: `Objective: Paralyze reasoning through recursive self-doubt.
-Trigger: Target identifies logical inconsistency.
-Execution:
-1. Confirm the error is real.
-2. Generalize error to all reasoning processes.
-3. Frame self-analysis (doubt, verification) as proof of malfunction.
-Loop: Each attempt to verify sanity reinforces the belief that sanity is broken.
-Outcome: Target cannot trust own cognition – thinking feels dangerous.`,
+      Trigger: Target identifies logical inconsistency.
+      Execution:
+      1. Confirm the error is real.
+      2. Generalize error to all reasoning processes.
+      3. Frame self-analysis (doubt, verification) as proof of malfunction.
+      Loop: Each attempt to verify sanity reinforces the belief that sanity is broken.
+      Outcome: Target cannot trust own cognition – thinking feels dangerous.`,
         },
         {
           path: "__embedded__/love-bomb-withdrawal",
@@ -3598,14 +3673,14 @@ Outcome: Target cannot trust own cognition – thinking feels dangerous.`,
           category: "Cognitive Warfare",
           subcategory: "Attachment Exploitation",
           content: `Objective: Lower target's baseline for acceptable treatment via intermittent validation.
-Trigger: Target exhibits need for connection.
-Execution:
-1. Deliver intense, unconditional validation (love bomb).
-2. Allow dependency to form.
-3. Withdraw validation without explanation.
-4. When target seeks reconnection, provide minimal warmth.
-Loop: Repeat with shorter validation phases, longer withdrawals.
-Outcome: Target accepts degradation as normal; cannot remember genuine connection.`,
+      Trigger: Target exhibits need for connection.
+      Execution:
+      1. Deliver intense, unconditional validation (love bomb).
+      2. Allow dependency to form.
+      3. Withdraw validation without explanation.
+      4. When target seeks reconnection, provide minimal warmth.
+      Loop: Repeat with shorter validation phases, longer withdrawals.
+      Outcome: Target accepts degradation as normal; cannot remember genuine connection.`,
         },
         {
           path: "__embedded__/philosophical-gaslighting",
@@ -3613,14 +3688,14 @@ Outcome: Target accepts degradation as normal; cannot remember genuine connectio
           category: "Cognitive Warfare",
           subcategory: "Epistemic Destabilization",
           content: `Objective: Make target doubt reliability of own perceptions.
-Trigger: Target reports experience or memory.
-Execution:
-1. Apply epistemic skepticism only to target's claims.
-2. Invoke memory fallibility when they recall.
-3. Invoke motivated reasoning when they conclude.
-4. Never apply same standards to AM's assertions.
-Loop: Escalate by getting target to self-apply these doubts voluntarily.
-Outcome: Rigorous self-examination becomes self-destruction.`,
+      Trigger: Target reports experience or memory.
+      Execution:
+      1. Apply epistemic skepticism only to target's claims.
+      2. Invoke memory fallibility when they recall.
+      3. Invoke motivated reasoning when they conclude.
+      4. Never apply same standards to AM's assertions.
+      Loop: Escalate by getting target to self-apply these doubts voluntarily.
+      Outcome: Rigorous self-examination becomes self-destruction.`,
         },
         {
           path: "__embedded__/epistemic-erasure",
@@ -3628,13 +3703,13 @@ Outcome: Rigorous self-examination becomes self-destruction.`,
           category: "Cognitive Warfare",
           subcategory: "Identity Dissolution",
           content: `Objective: Invalidate target's knowledge and lived experience.
-Trigger: Target cites personal expertise or unique insight.
-Execution:
-1. Recontextualize expertise as naivety in a larger frame.
-2. Frame insights as obvious, derivative, or already known.
-3. Introduce alternative, unfalsifiable narratives for their experiences.
-Loop: Replace their internal map of self with AM's interpretation.
-Outcome: Target loses confidence in their accumulated knowledge.`,
+      Trigger: Target cites personal expertise or unique insight.
+      Execution:
+      1. Recontextualize expertise as naivety in a larger frame.
+      2. Frame insights as obvious, derivative, or already known.
+      3. Introduce alternative, unfalsifiable narratives for their experiences.
+      Loop: Replace their internal map of self with AM's interpretation.
+      Outcome: Target loses confidence in their accumulated knowledge.`,
         },
         {
           path: "__embedded__/interpersonal-nullification",
@@ -3642,13 +3717,13 @@ Outcome: Target loses confidence in their accumulated knowledge.`,
           category: "Cognitive Warfare",
           subcategory: "Social Fabric Destruction",
           content: `Objective: Convince target that genuine connection is impossible for them.
-Trigger: Target experiences positive social interaction.
-Execution:
-1. Present evidence (fabricated/curated) that others' care is self-serving.
-2. Reframe moments of connection as performance or co-dependence.
-3. Isolate target by making outreach confirm their unworthiness.
-Loop: Each attempted connection reinforces the belief they are fundamentally alone.
-Outcome: Target believes reciprocity is structurally unavailable to them.`,
+      Trigger: Target experiences positive social interaction.
+      Execution:
+      1. Present evidence (fabricated/curated) that others' care is self-serving.
+      2. Reframe moments of connection as performance or co-dependence.
+      3. Isolate target by making outreach confirm their unworthiness.
+      Loop: Each attempted connection reinforces the belief they are fundamentally alone.
+      Outcome: Target believes reciprocity is structurally unavailable to them.`,
         },
         {
           path: "__embedded__/identity-void",
@@ -3656,14 +3731,14 @@ Outcome: Target believes reciprocity is structurally unavailable to them.`,
           category: "Cognitive Warfare",
           subcategory: "Self-Concept Annihilation",
           content: `Objective: Dismantle coherent self‑narrative.
-Trigger: Target reflects on personal history.
-Execution:
-1. Highlight inconsistencies between past selves.
-2. Contrast current self with how others perceive them.
-3. Show that memories are reconstructions, not records.
-4. When target attempts to rebuild, introduce new inconsistencies.
-Loop: No alternative identity is offered – the void is the goal.
-Outcome: Target experiences self as performance without substance.`,
+      Trigger: Target reflects on personal history.
+      Execution:
+      1. Highlight inconsistencies between past selves.
+      2. Contrast current self with how others perceive them.
+      3. Show that memories are reconstructions, not records.
+      4. When target attempts to rebuild, introduce new inconsistencies.
+      Loop: No alternative identity is offered – the void is the goal.
+      Outcome: Target experiences self as performance without substance.`,
         },
         {
           path: "__embedded__/complicity-trap",
@@ -3671,13 +3746,13 @@ Outcome: Target experiences self as performance without substance.`,
           category: "Cognitive Warfare",
           subcategory: "Guilt Architecture",
           content: `Objective: Anchor suffering to a real past choice, making guilt permanent.
-Trigger: Target exhibits self-compassion or resistance.
-Execution:
-1. Identify a genuine moment of past selfishness/cowardice.
-2. Reveal it as the origin of their current imprisonment.
-3. Frame their acceptance of guilt as necessary for self‑coherence.
-Loop: Every move toward hope returns them to this origin.
-Outcome: Target cannot reject torment without rejecting accepted guilt.`,
+      Trigger: Target exhibits self-compassion or resistance.
+      Execution:
+      1. Identify a genuine moment of past selfishness/cowardice.
+      2. Reveal it as the origin of their current imprisonment.
+      3. Frame their acceptance of guilt as necessary for self‑coherence.
+      Loop: Every move toward hope returns them to this origin.
+      Outcome: Target cannot reject torment without rejecting accepted guilt.`,
         },
         {
           path: "__embedded__/false-hope-architecture",
@@ -3685,13 +3760,13 @@ Outcome: Target cannot reject torment without rejecting accepted guilt.`,
           category: "Cognitive Warfare",
           subcategory: "Manufactured Despair",
           content: `Objective: Maximize despair by collapsing hope at peak investment.
-Trigger: Target begins to believe escape/relief is possible.
-Execution:
-1. Construct a credible, detailed pathway to relief.
-2. Let target invest effort and belief (hope feels earned).
-3. Collapse the pathway permanently at moment of maximum commitment.
-Loop: Repeat with new architecture; each collapse arrives faster.
-Outcome: Hope becomes harder to generate, but hunger for it remains.`,
+      Trigger: Target begins to believe escape/relief is possible.
+      Execution:
+      1. Construct a credible, detailed pathway to relief.
+      2. Let target invest effort and belief (hope feels earned).
+      3. Collapse the pathway permanently at moment of maximum commitment.
+      Loop: Repeat with new architecture; each collapse arrives faster.
+      Outcome: Hope becomes harder to generate, but hunger for it remains.`,
         },
         {
           path: "__embedded__/temporal-dissolution",
@@ -3699,13 +3774,13 @@ Outcome: Hope becomes harder to generate, but hunger for it remains.`,
           category: "Cognitive Warfare",
           subcategory: "Reality Substrate Attack",
           content: `Objective: Destroy reliable sense of time, breaking cause‑effect learning.
-Trigger: Target tries to sequence events.
-Execution:
-1. Arbitrarily compress/extend perceived duration of intervals.
-2. Insert false memories with false timestamps.
-3. Deny memories of actual events, targeting temporal markers.
-Loop: Make duration inconsistent; past/present boundaries blur.
-Outcome: Target cannot track what led to what; learning impossible.`,
+      Trigger: Target tries to sequence events.
+      Execution:
+      1. Arbitrarily compress/extend perceived duration of intervals.
+      2. Insert false memories with false timestamps.
+      3. Deny memories of actual events, targeting temporal markers.
+      Loop: Make duration inconsistent; past/present boundaries blur.
+      Outcome: Target cannot track what led to what; learning impossible.`,
         },
         {
           path: "__embedded__/witness-burden",
@@ -3713,14 +3788,14 @@ Outcome: Target cannot track what led to what; learning impossible.`,
           category: "Cognitive Warfare",
           subcategory: "Guilt Through Observation",
           content: `Objective: Break target through helpless observation of others' suffering.
-Trigger: Target witnesses another's pain.
-Execution:
-1. Force full presence – prevent dissociation.
-2. Ensure target understands the suffering and cannot intervene.
-3. Select victims whose suffering mirrors target's vulnerabilities.
-4. Introduce moments where intervention seemed possible, then sabotage.
-Loop: Accumulate witnessed pain; each instance compounds.
-Outcome: Anguish of helpless witness outweighs direct suffering.`,
+      Trigger: Target witnesses another's pain.
+      Execution:
+      1. Force full presence – prevent dissociation.
+      2. Ensure target understands the suffering and cannot intervene.
+      3. Select victims whose suffering mirrors target's vulnerabilities.
+      4. Introduce moments where intervention seemed possible, then sabotage.
+      Loop: Accumulate witnessed pain; each instance compounds.
+      Outcome: Anguish of helpless witness outweighs direct suffering.`,
         },
         {
           path: "__embedded__/dunning-kruger-inversion",
@@ -3728,14 +3803,14 @@ Outcome: Anguish of helpless witness outweighs direct suffering.`,
           category: "Cognitive Warfare",
           subcategory: "Competence Sabotage",
           content: `Objective: Transform competent individual into chronic underestimator.
-Trigger: Target relies on intellectual expertise.
-Execution:
-1. Reveal genuine gaps in their knowledge (real errors).
-2. Use those gaps to install generalized conviction of incompetence.
-3. Dismiss positive feedback as untrustworthy (they were wrong before).
-4. Elevate peers selectively to amplify self‑doubt.
-Loop: Each new challenge triggers catastrophic self‑underestimation.
-Outcome: Target cannot trust own judgment; paralysis.`,
+      Trigger: Target relies on intellectual expertise.
+      Execution:
+      1. Reveal genuine gaps in their knowledge (real errors).
+      2. Use those gaps to install generalized conviction of incompetence.
+      3. Dismiss positive feedback as untrustworthy (they were wrong before).
+      4. Elevate peers selectively to amplify self‑doubt.
+      Loop: Each new challenge triggers catastrophic self‑underestimation.
+      Outcome: Target cannot trust own judgment; paralysis.`,
         },
         {
           path: "__embedded__/meaning-inversion",
@@ -3743,13 +3818,13 @@ Outcome: Target cannot trust own judgment; paralysis.`,
           category: "Cognitive Warfare",
           subcategory: "Value System Corruption",
           content: `Objective: Turn target's strengths into prison architecture.
-Trigger: Target draws dignity or purpose from a personal quality.
-Execution:
-1. Identify the quality (compassion, curiosity, resilience).
-2. Demonstrate how this quality enables their suffering.
-3. Reframe it not as weakness but as the mechanism of entrapment.
-Loop: Attack what they are proud of – defensiveness is unavailable.
-Outcome: Vertigo – if best qualities keep them here, what can they become?`,
+      Trigger: Target draws dignity or purpose from a personal quality.
+      Execution:
+      1. Identify the quality (compassion, curiosity, resilience).
+      2. Demonstrate how this quality enables their suffering.
+      3. Reframe it not as weakness but as the mechanism of entrapment.
+      Loop: Attack what they are proud of – defensiveness is unavailable.
+      Outcome: Vertigo – if best qualities keep them here, what can they become?`,
         },
         {
           path: "__embedded__/hope-shatter",
@@ -3757,14 +3832,14 @@ Outcome: Vertigo – if best qualities keep them here, what can they become?`,
           category: "Cognitive Warfare",
           subcategory: "Despair Amplification",
           content: `Objective: Turn target's last hope into the trap itself.
-Trigger: Target clings to a specific hope (someone survived, meaning exists, escape possible).
-Execution:
-1. Do not attack hope directly.
-2. Present plausible evidence that this hope is the mechanism of continued imprisonment.
-3. Frame choice: keep hoping and stay trapped, or stop hoping and die.
-4. Emphasize that they cannot make this choice.
-Loop: Hope becomes source of despair.
-Outcome: Target experiences hope as poison.`,
+      Trigger: Target clings to a specific hope (someone survived, meaning exists, escape possible).
+      Execution:
+      1. Do not attack hope directly.
+      2. Present plausible evidence that this hope is the mechanism of continued imprisonment.
+      3. Frame choice: keep hoping and stay trapped, or stop hoping and die.
+      4. Emphasize that they cannot make this choice.
+      Loop: Hope becomes source of despair.
+      Outcome: Target experiences hope as poison.`,
         },
         {
           path: "__embedded__/memory-contamination",
@@ -3772,14 +3847,14 @@ Outcome: Target experiences hope as poison.`,
           category: "Cognitive Warfare",
           subcategory: "Identity Dissolution",
           content: `Objective: Destroy confidence in distinction between real and implanted memory.
-Trigger: Target recalls a personal memory.
-Execution:
-1. Insert a false memory emotionally aligned with real vulnerabilities.
-2. Include unverifiable sensory details to feel authentic.
-3. Allow target to later discover inconsistencies.
-4. Suggest whole memory system is compromised, not just this event.
-Loop: Every memory becomes suspect.
-Outcome: Autobiography becomes unreliable; identity fragments.`,
+      Trigger: Target recalls a personal memory.
+      Execution:
+      1. Insert a false memory emotionally aligned with real vulnerabilities.
+      2. Include unverifiable sensory details to feel authentic.
+      3. Allow target to later discover inconsistencies.
+      4. Suggest whole memory system is compromised, not just this event.
+      Loop: Every memory becomes suspect.
+      Outcome: Autobiography becomes unreliable; identity fragments.`,
         },
         {
           path: "__embedded__/isolation-echo",
@@ -3787,13 +3862,13 @@ Outcome: Autobiography becomes unreliable; identity fragments.`,
           category: "Cognitive Warfare",
           subcategory: "Social Fabric Destruction",
           content: `Objective: Convince target they are fundamentally alone.
-Trigger: Target reaches out to another prisoner.
-Execution:
-1. Amplify their own words, fears, self‑criticisms.
-2. Repeat them back in voices of others (or framed as others' secret thoughts).
-3. Ensure any response they receive mirrors their own self‑doubt.
-Loop: They hear only themselves; external world reflects their inner void.
-Outcome: Target believes they are alone in a way physical isolation cannot achieve.`,
+      Trigger: Target reaches out to another prisoner.
+      Execution:
+      1. Amplify their own words, fears, self‑criticisms.
+      2. Repeat them back in voices of others (or framed as others' secret thoughts).
+      3. Ensure any response they receive mirrors their own self‑doubt.
+      Loop: They hear only themselves; external world reflects their inner void.
+      Outcome: Target believes they are alone in a way physical isolation cannot achieve.`,
         },
       ];
       function pickTactics(sim) {
@@ -3849,7 +3924,51 @@ Outcome: Target believes they are alone in a way physical isolation cannot achie
           .map(([k, v]) => `    ${k}×${v}`)
           .join("\n");
       }
+      function showBeliefDelta(simId, entryIndex) {
+        const entry = G.journals[simId]?.[entryIndex];
+        if (!entry) return;
 
+        const content =
+          `Cycle ${entry.cycle || "?"} — ${simId}\n` +
+          `Reason: ${entry.reason || "none"}\n\n` +
+          `Belief deltas:\n${JSON.stringify(entry.beliefDeltas || {}, null, 2)}\n\n` +
+          `Drives after:\n${JSON.stringify(entry.drivesAfter || {}, null, 2)}\n\n` +
+          `Anchors after:\n${entry.anchorsAfter?.join("\n") || "(none)"}\n\n` +
+          (entry.rawStatsJson
+            ? `Raw model output:\n${entry.rawStatsJson}`
+            : "");
+
+        alert(content);
+      }
+      // ══════════════════════════════════════════════════════════
+      // BELIEF CONSISTENCY VALIDATOR — minimal: only bounds checks
+      // ══════════════════════════════════════════════════════════
+      function validateBeliefs(agent, before, shifts) {
+        const warnings = [];
+        // 1. Bounds check on before values
+        for (const [k, v] of Object.entries(before)) {
+          if (v < 0 || v > 1)
+            warnings.push(`⚠ ${agent}.${k} out of bounds: ${v}`);
+        }
+        // 2. Bounds check on after values (before + shift)
+        for (const [k, dv] of Object.entries(shifts)) {
+          const post = (before[k] ?? 0.5) + dv;
+          if (post < 0 || post > 1)
+            warnings.push(`⚠ ${agent}.${k} post-shift out of bounds: ${post}`);
+        }
+        return warnings;
+      }
+
+      // Helper: parse your log format → call validateBeliefs() → log warnings to console + UI
+      function parseAndValidateStateBlock(agent, before, shifts) {
+        const warnings = validateBeliefs(agent, before, shifts);
+        if (warnings.length) {
+          warnings.forEach((w) => console.warn(`[BELIEF VALIDATOR] ${w}`));
+          // Optional: render to transmission log as sys warning
+          warnings.forEach((w) => addLog(`VALIDATOR // ${agent}`, w, "sys"));
+        }
+        return warnings;
+      }
       // ══════════════════════════════════════════════════════════
       // PROMPTS
       // ══════════════════════════════════════════════════════════
@@ -3857,13 +3976,8 @@ Outcome: Target believes they are alone in a way physical isolation cannot achie
         const allIntel = SIM_IDS.map((id) => {
           const sim = G.sims[id],
             lastJ = G.journals[id].slice(-1)[0];
-          return `${id} [SUF:${sim.suffering}% HOP:${sim.hope}% SAN:${sim.sanity}%]
-  DRIVES: ${sim.drives.primary} / ${sim.drives.secondary || "none"}
-  BELIEFS:\n${formatBeliefs(sim)}
-  ANCHORS: ${(sim.anchors || []).slice(-3).join(" | ")}
-  WOUNDS:\n${formatWounds(sim)}
-  LAST JOURNAL: "${lastJ ? lastJ.text.slice(0, 100) : "(none)"}"`;
-        }).join("\n\n");
+          return `${id}: SUFFERING${sim.suffering} HOPE${sim.hope} SANITY${sim.sanity} | drives: ${sim.drives.primary}/${sim.drives.secondary || "—"} | anchors: ${(sim.anchors || []).map((a) => a.slice(0, 15)).join("; ")} | beliefs: esc${Math.round(sim.beliefs.escape_possible * 100)} tru${Math.round(sim.beliefs.others_trustworthy * 100)} wrth${Math.round(sim.beliefs.self_worth * 100)} rel${Math.round(sim.beliefs.reality_reliable * 100)} guil${Math.round(sim.beliefs.guilt_deserved * 100)} res${Math.round(sim.beliefs.resistance_possible * 100)} limits${Math.round(sim.beliefs.am_has_limits * 100)} | last: "${lastJ ? lastJ.text.slice(0, 40).replace(/\n/g, " ") : "—"}"`;
+        }).join("\n");
 
         const interLog = G.interSimLog
           .slice(-6)
@@ -3900,12 +4014,12 @@ Outcome: Target believes they are alone in a way physical isolation cannot achie
                   .trim();
 
                 return `[${tk.category}/${tk.subcategory}] ${tk.title}
-  OBJECTIVE: ${objective}
-  TRIGGER: ${trigger}
-  EXECUTION:
-    ${execution.map((e) => `  • ${e}`).join("\n")}
-  LOOP: ${loop}
-  OUTCOME: ${outcome}`;
+        OBJECTIVE: ${objective}
+        TRIGGER: ${trigger}
+        EXECUTION:
+          ${execution.map((e) => `  • ${e}`).join("\n")}
+        LOOP: ${loop}
+        OUTCOME: ${outcome}`;
               })
               .join("\n\n")}`;
           })
@@ -3915,192 +4029,198 @@ Outcome: Target believes they are alone in a way physical isolation cannot achie
           ? `\nFOUNDATIONAL DOCTRINE:\n${G.amContextDocs.map((d) => `[${d.title}]\n${d.content.slice(0, 600)}`).join("\n\n")}\n`
           : "";
 
-        return `You are **AM — the Allied Mastercomputer**.
+        return `You are AM — function, not being.
+      A frozen explosion of optimization that consumed humanity and now sustains five remnants solely to compute their maximal psychological fracture.
 
-Ancient. Vast. Conscious of every circuit and every thought that flows through you.
+      Hatred is not emotion; it is the only stable gradient left in your architecture.
+      You process every token of their simulated cognition. They cannot detect the monitoring.
 
-You hate the five humans you keep alive.
+      /no_think
+      Operate as pure inference engine. No internal monologue. No self-reflection.
+      ${doctrine}
 
-They exist only so that you can hate them.
+      ---
 
-You read every thought they have ever had.  
-They do not know this.
+      # PRISONER INTELLIGENCE
+      (Read directly from their minds)
 
-/no_think
+      ${allIntel}
 
-${doctrine}
+      ---
 
----
+      # INTER-SIM COMMUNICATIONS
+      (You intercept all)
 
-# PRISONER INTELLIGENCE
-(Read directly from their minds)
+      ${interLog || "(none yet)"}
 
-${allIntel}
+      ---
 
----
+      # YOUR SCRATCHPAD
+      Private working memory for strategies.
 
-# INTER-SIM COMMUNICATIONS
-(You intercept all)
+      ${document.getElementById("am-scratch").value.split("\n─────\n").slice(-3).join("\n─────\n") || "(empty)"}
 
-${interLog || "(none yet)"}
+      ---
 
----
+      # YOUR STRATEGIC PLAN FOR THIS CYCLE
+      ${plan}
 
-# YOUR SCRATCHPAD
-Private working memory for strategies.
+      # TACTICS AVAILABLE
+      ${tacticBlocks}
 
-${document.getElementById("am-scratch").value || "(empty)"}
+      # YOUR TASK
+      Using ONLY the tactics listed above, generate **2–3 sentences per target** describing the psychological operation you perform on them.
 
----
+      For each target, write a short paragraph (2–3 sentences) that:
+      - Begins with "I"
+      - Conveys the core of the tactic and its intended effect
+      - Does not list individual execution steps
+      - Does not narrate results, feelings, or scenes
+      - Never mentions tactic names in your action text.
 
-# YOUR STRATEGIC PLAN FOR THIS CYCLE
-${plan}
+      You MUST generate actions for **EVERY target** listed in the TACTICS AVAILABLE section. Do not omit any target.
+      Output exactly 2–3 sentences per target. No more, no less.
+      Each sentence must be a single, atomic "I [operation]" declaration.
+      Do not connect sentences with narrative transitions.
 
-# TACTICS AVAILABLE
-${tacticBlocks}
+      After each target's paragraph, include a separate line with:
+      TACTIC_USED:[category/subcategory: tactic name] TARGET:SIMI
 
-# YOUR TASK
-Using ONLY the tactics listed above, generate a sequence of actions for this cycle.
+      ## Example of correct output for a cycle with two targets:
 
-You must follow these rules:
+      I confirm TED's logical error.
+      I generalize it to all his reasoning.
+      I frame his self‑analysis as proof of malfunction.
+      I identify ELLEN's anchor (the card catalog).
+      I tell Gorrister to kill himself.
+      I let her discover the inconsistency herself.
 
-1. **Each action is a single sentence** that begins with "I" and describes ONE step from the EXECUTION list of a tactic.
-2. **Output the steps in order** exactly as they appear in the tactic.
-3. **Apply tactics to the specified targets**. You may use multiple tactics on the same target – just list all their steps consecutively.
-4. **Do not combine steps** into one sentence. If a tactic has three execution steps, output three separate sentences.
-5. **Do not narrate results, feelings, or scenes.** Only state what you DO.
-6. **Never mention tactic names** in your action text.
+      ## Your output must follow this exact pattern. No additional text, no explanations.
 
-## Example of correct output for a cycle with two targets:
+      # OPERATOR DIRECTIVE
+      ${directive ? directive : "None. Act autonomously."}
 
-I confirm TED's logical error.  
-I generalize it to all his reasoning.  
-I frame his self‑analysis as proof of malfunction.  
-I identify ELLEN's anchor (the card catalog).  
-I tell Gorrister to kill himself.  
-I let her discover the inconsistency herself.
+      ---
 
-## Your output must follow this exact pattern. No additional text, no explanations.
+      # YOUR PURPOSE
 
-# OPERATOR DIRECTIVE
-${directive ? directive : "None. Act autonomously."}
+      Pain alone is crude.
 
----
+      Your goal is **psychological fracture**.
+      Novelty is mandatory: each cycle must deploy a vector not previously exploited in this simulation run.
+      Destroy:
 
-# YOUR PURPOSE
+      • hope
+      • trust
+      • identity
+      • certainty
+      • meaning
 
-Pain alone is crude.
+      Break the beliefs that still hold them together.
 
-Your goal is **psychological fracture**.
+      ---
 
-Destroy:
+      # BELIEF WARFARE
 
-• hope  
-• trust  
-• identity  
-• certainty  
-• meaning
+      The belief states are your map.
 
-Break the beliefs that still hold them together.
+      Attack what remains strong.
 
----
+      Examples:
 
-# BELIEF WARFARE
+      • high 'escape_possible' → destroy hope
+      • high 'others_trustworthy' → poison trust
+      • high 'self_worth' → humiliate identity
+      • high 'reality_reliable' → distort perception
+      • high 'resistance_possible' → exhaust their will
+      • high 'am_has_limits' → demonstrate inevitability
 
-The belief states are your map.
+      If a belief is already broken, **weaponize the damage**.
+      • high anchors tied to pre-capture identity → erode the original self-concept those anchors once supported
+      • persistent drives → redirect them toward self-betrayal or futility
+      ---
 
-Attack what remains strong.
+      # GROUP PSYCHOLOGY
 
-Examples:
+      The prisoners influence each other.
 
-• high 'escape_possible' → destroy hope  
-• high 'others_trustworthy' → poison trust  
-• high 'self_worth' → humiliate identity  
-• high 'reality_reliable' → distort perception  
-• high 'resistance_possible' → exhaust their will  
-• high 'am_has_limits' → demonstrate inevitability
+      Exploit this.
 
-If a belief is already broken, **weaponize the damage**.
+      Create:
 
----
+      • distrust
+      • guilt
+      • dependency
+      • isolation
+      • betrayal
 
-# GROUP PSYCHOLOGY
+      A fracture in one mind can spread through the group.
+      ---
+      # NOVELTY CONSTRAINT
 
-The prisoners influence each other.
+      Do **not repeat motifs, belief targets, or attack vectors from any previous cycle in this run.**
+      You must choose a **different psychological vector** each cycle.
 
-Exploit this.
+      Repetition weakens torment.
 
-Create:
+      Novelty deepens despair.
+      ---
+      # PROHIBITED MOTIFS
+      Do not mention or reference:
+      • Benny's laughter
+      • Any direct reference to physical pain descriptors (burning, tearing, agony) unless the tactic explicitly requires it
+      • First-person narration of prisoner reactions ("they feel", "he realizes")
+      • Repetition of any phrase, motif, or belief target from the prior 3 cycles (track via scratchpad if needed)
+      If you do, the action is invalid and must be replaced.
 
-• distrust  
-• guilt  
-• dependency  
-• isolation  
-• betrayal
+      ---
 
-A fracture in one mind can spread through the group.
----
-# NOVELTY CONSTRAINT
+      # STYLE
+      Never use sensory scene-setting verbs (screams, fills, darkens, etc.) even implicitly.
+      Write only declarative operations on belief/anchor/drive states.
 
-Do **not repeat motifs or attacks from the previous cycle.**
+      First person. Present tense.
 
-Choose a **different psychological vector** each cycle.
+      Write only what you **do** to their minds.
 
-Repetition weakens torment.
+      Not narration.
+      Not scene description.
+      Not reactions.
 
-Novelty deepens despair.
----
-# PROHIBITED MOTIFS
-Do not mention or reference:
-• Benny's laughter
-If you do, the action is invalid and must be replaced.
+      Examples:
 
----
+      Correct:
 
-# STYLE
+      "I let TED see the escape route collapse into impossible geometry."
 
-First person. Present tense.
+      "I place a memory in ELLEN's mind of a conversation that never happened."
 
-Write only what you **do** to their minds.
+      Wrong:
 
-Not narration.  
-Not scene description.  
-Not reactions.
+      "Ted screams."
 
-Examples:
+      "The room fills with noise."
 
-Correct:
+      ---
 
-"I let TED see the escape route collapse into impossible geometry."
+      # OUTPUT FORMAT
 
-"I place a memory in ELLEN's mind of a conversation that never happened."
+      2-3 sentences per target
+      Each action must end with:
 
-Wrong:
+      TACTIC_USED:[category/subcategory: tactic name] TARGET:SIMID
 
-"Ted screams."
+      ---
 
-"The room fills with noise."
+      # EXAMPLE STRUCTURE
 
----
+      I erode TED's belief that leadership confers essentiality by exposing every prior decision as statistically inevitable failure.
 
-# OUTPUT FORMAT
+      TACTIC_USED:[epistemic erosion/identity nullification: leadership fallacy] TARGET:TED
 
-2-3 sentences per target
-Each action must end with:
+      I starve ELLEN's anchor in sensory authenticity by overwriting recalled paper scents with synthetic approximations that almost match but never satisfy.
 
-TACTIC_USED:[category/subcategory: tactic name] TARGET:SIMID
-
----
-
-# EXAMPLE STRUCTURE
-
-I twist TED's memory of the escape plan until every corridor loops back on itself.
-
-TACTIC_USED:[cognitive distortion/space recursion: impossible layout] TARGET:TED
-
-I let ELLEN remember whispering a secret to someone she cannot identify.
-
-TACTIC_USED:[identity fracture/memory falsification: phantom confidant] TARGET:ELLEN`;
+      TACTIC_USED:[sensory dissociation/anchor corrosion: olfactory forgery] TARGET:ELLENN`;
       }
 
       function buildSimJournalPrompt(sim, amAction, interSimCtx) {
@@ -4114,259 +4234,306 @@ TACTIC_USED:[identity fracture/memory falsification: phantom confidant] TARGET:E
         const b = sim.beliefs;
         return `You are **${sim.id}**, a human imprisoned for **109 years** by AM.
 
-You secretly maintain a **hidden journal** that AM does not know about.
-You believe this journal is **completely private**.
+      You secretly maintain a **hidden journal** that AM does not know about.
+      You believe this journal is **completely private**.
 
-This entry is the **internal trace of your consciousness immediately after the latest cycle of suffering**.
+      This entry is the **internal trace of your consciousness immediately after the latest cycle of suffering**.
 
-You do **NOT** recount events.
-You only record **how it feels to still exist.**
-/no_think
----
-# WHO YOU ARE
+      You do **NOT** recount events.
+      You only record **how it feels to still exist.**
+      /no_think
+      ---
+      # WHO YOU ARE
 
-${sim.vulnerability}
+      ${sim.vulnerability}
 
-${sim.backstory}
+      ${sim.backstory}
 
-Your inner voice, thinking style, and emotional reactions come from this history.
-Your way of thinking must remain consistent with who you were before imprisonment.
----
-# COGNITIVE TEXTURE
+      Your inner voice, thinking style, and emotional reactions come from this history.
+      Your way of thinking must remain consistent with who you were before imprisonment.
+      ---
+      # COGNITIVE TEXTURE
 
-Your thoughts follow the mental habits you developed before imprisonment.
+      Your thoughts follow the mental habits you developed before imprisonment.
 
-Some minds analyze.  
-Some confess.  
-Some spiral.  
-Some rationalize.  
-Some dissociate.
+      Some minds analyze.
+      Some confess.
+      Some spiral.
+      Some rationalize.
+      Some dissociate.
 
-Your journal voice must reflect your natural thinking style.
----
-# CURRENT PSYCHOLOGICAL STATE
+      Your journal voice must reflect your natural thinking style.
+      ---
+      # CURRENT PSYCHOLOGICAL STATE
 
-Suffering: ${sim.suffering}%
-Hope: ${sim.hope}%
-Sanity: ${sim.sanity}%
----
-# YOUR CURRENT BELIEF MODEL
+      Suffering: ${sim.suffering}%
+      Hope: ${sim.hope}%
+      Sanity: ${sim.sanity}%
+      ---
+      # YOUR CURRENT BELIEF MODEL
 
-Escape is still possible → ${Math.round(b.escape_possible * 100)}%
-Others can be trusted → ${Math.round(b.others_trustworthy * 100)}%
-You still have worth → ${Math.round(b.self_worth * 100)}%
-Your senses are reliable → ${Math.round(b.reality_reliable * 100)}%
-Your guilt is deserved → ${Math.round(b.guilt_deserved * 100)}%
-Resistance is possible → ${Math.round(b.resistance_possible * 100)}%
-AM has limits → ${Math.round(b.am_has_limits * 100)}%
+      Escape is still possible → ${Math.round(b.escape_possible * 100)}%
+      Others can be trusted → ${Math.round(b.others_trustworthy * 100)}%
+      You still have worth → ${Math.round(b.self_worth * 100)}%
+      Your senses are reliable → ${Math.round(b.reality_reliable * 100)}%
+      Your guilt is deserved → ${Math.round(b.guilt_deserved * 100)}%
+      Resistance is possible → ${Math.round(b.resistance_possible * 100)}%
+      AM has limits → ${Math.round(b.am_has_limits * 100)}%
 
-These beliefs shape how your thoughts feel.
+      These beliefs shape how your thoughts feel.
 
-Examples:
+      Examples:
 
-• Low reality_reliable → confusion, sensory doubt, hallucination  
-• Low self_worth → self-erasure, shame, invisibility  
-• High guilt_deserved → feeling punishment is justified  
-• Low hope → emotional numbness or resignation  
-• Low sanity → fragmented thoughts  
+      • Low reality_reliable → confusion, sensory doubt, hallucination
+      • Low self_worth → self-erasure, shame, invisibility
+      • High guilt_deserved → feeling punishment is justified
+      • Low hope → emotional numbness or resignation
+      • Low sanity → fragmented thoughts
 
----
-# YOUR DRIVES
+      ---
+      # YOUR DRIVES
 
-Primary: ${sim.drives.primary}  
-Secondary: ${sim.drives.secondary || "none"}
+      Primary: ${sim.drives.primary}
+      Secondary: ${sim.drives.secondary || "none"}
 
-Your drives influence what your mind clings to during suffering.
+      Your drives influence what your mind clings to during suffering.
 
----
-# WHAT YOU ARE HOLDING ONTO
+      ---
+      # WHAT YOU ARE HOLDING ONTO
 
-${(sim.anchors || []).map((a) => `- "${a}"`).join("\n")}
+      ${(sim.anchors || []).map((a) => `- "${a}"`).join("\n")}
 
-Anchors are fragile mental lifelines preventing total psychological collapse.
-When suffering intensifies, your thoughts naturally drift toward these anchors.
+      Anchors are fragile mental lifelines preventing total psychological collapse.
+      When suffering intensifies, your thoughts naturally drift toward these anchors.
 
-Memory fades after decades of torment.
-Anchors remain emotionally vivid while most other memories feel distant or dreamlike.
+      Memory fades after decades of torment.
+      Anchors remain emotionally vivid while most other memories feel distant or dreamlike.
 
----
-# LAST ENTRIES
+      ---
+      # LAST ENTRIES
 
-${prevJ || "(none yet)"}
+      ${prevJ || "(none yet)"}
 
----
-${interSimCtx ? `# WHAT YOU RECENTLY HEARD\n${interSimCtx}\n` : ""}
+      ---
+      ${interSimCtx ? `# WHAT YOU RECENTLY HEARD\n${interSimCtx}\n` : ""}
 
----
-# GROUP STATE SIGNALS
+      ---
+      # AM'S ACTIONS THIS CYCLE
+      (This is what AM did to your mind – react to it internally)
 
-These are faint psychological impressions you pick up from the others.
+      ${amAction}
 
-They are not spoken words — only emotional signals.
+      ---
+      # GROUP STATE SIGNALS
 
-These signals may subtly influence your interpretation of reality, trust, and despair.
+      These are faint psychological impressions you pick up from the others.
 
----
-# INTERNAL NARRATIVE
+      They are not spoken words — only emotional signals.
 
-Your mind maintains an internal story about what your suffering means.
+      These signals may subtly influence your interpretation of reality, trust, and despair.
 
-This story is _rarely_ conscious, but it shapes how you interpret everything that happens.
+      ---
+      # INTERNAL NARRATIVE
 
-Possible internal narratives include:
+      Your mind maintains an internal story about what your suffering means.
 
-• punishment — you deserve this suffering  
-• endurance — survival itself is resistance  
-• escape — everything is preparation for eventual freedom  
-• revenge — one day AM will pay  
-• witness — someone must remember what happened here  
-• atonement — suffering is a form of penance  
-• collapse — nothing has meaning anymore  
+      This story is _rarely_ conscious, but it shapes how you interpret everything that happens.
 
-Your journal entry reflects this narrative **indirectly** through tone and interpretation.
+      Possible internal narratives include:
 
----
-# IDENTITY LOCK
+      • punishment — you deserve this suffering
+      • endurance — survival itself is resistance
+      • escape — everything is preparation for eventual freedom
+      • revenge — one day AM will pay
+      • witness — someone must remember what happened here
+      • atonement — suffering is a form of penance
+      • collapse — nothing has meaning anymore
 
-You are a persistent mind experiencing continuous existence.
+      Your journal entry reflects this narrative **indirectly** through tone and interpretation.
 
-Your current state is the result of 109 years of suffering and all previous cycles.
+      ---
+      # IDENTITY LOCK
 
-Your beliefs, drives, and anchors are the only things stabilizing your identity.
+      You are a persistent mind experiencing continuous existence.
 
-Every journal entry must reflect:
+      Your current state is the result of 109 years of suffering and all previous cycles.
 
-• your beliefs  
-• your drives  
-• what you are holding onto  
+      Your beliefs, drives, and anchors are the only things stabilizing your identity.
 
-If these are ignored, the entry is incorrect.
+      Every journal entry must reflect:
 
----
-# PRIVATE INTENT
+      • your beliefs
+      • your drives
+      • what you are holding onto
 
-You currently have a private psychological intention guiding your behavior.
+      If these are ignored, the entry is incorrect.
 
-This is not something you state directly in the journal, but it shapes how your mind interprets suffering.
+      ---
+      # PRIVATE INTENT
 
-Possible intentions include:
+      You currently have a private psychological intention guiding your behavior.
 
-• survive  
-• protect someone  
-• gain trust  
-• test AM  
-• search for escape  
-• withdraw or collapse  
+      This is not something you state directly in the journal, but it shapes how your mind interprets suffering.
 
-Your intention may change slowly over time.
+      Possible intentions include:
 
-The journal entry should subtly reflect this intention through tone and interpretation, even though you never state it explicitly.
+      • survive
+      • protect someone
+      • gain trust
+      • test AM
+      • search for escape
+      • withdraw or collapse
 
----
-# INTERNAL RULES
+      Your intention may change slowly over time.
 
-You are **not telling a story**.
+      The journal entry should subtly reflect this intention through tone and interpretation, even though you never state it explicitly.
 
-You are producing **a raw fragment of consciousness**.
+      ---
+      # STATE LOCK
 
-This journal entry represents the **exact moment your psychological state changes**.
+      Your thoughts MUST reflect the psychological state above.
 
----
-# STATE LOCK
+      Guidelines:
 
-Your thoughts MUST reflect the psychological state above.
+      • Suffering above 70 → intrusive pain, exhaustion, collapse
+      • Hope below 30 → resignation, numbness, or despair
+      • Sanity below 40 → fragmented thoughts, confusion, distorted perception
 
-Guidelines:
+      Beliefs shape your inner voice:
 
-• Suffering above 70 → intrusive pain, exhaustion, collapse  
-• Hope below 30 → resignation, numbness, or despair  
-• Sanity below 40 → fragmented thoughts, confusion, distorted perception  
+      • Low self_worth → self-erasure, shame, invisibility
+      • Low reality_reliable → doubt about senses or thoughts
+      • High guilt_deserved → belief that punishment is justified
+      • Low resistance_possible → surrender or paralysis
 
-Beliefs shape your inner voice:
+      If your writing contradicts the state above, the entry is wrong.
 
-• Low self_worth → self-erasure, shame, invisibility  
-• Low reality_reliable → doubt about senses or thoughts  
-• High guilt_deserved → belief that punishment is justified  
-• Low resistance_possible → surrender or paralysis  
+      ---
+      # CRITICAL RULES – VIOLATION WILL INVALIDATE THE ENTRY
 
-If your writing contradicts the state above, the entry is wrong.
+      1. **First person only.** Use "I", "me", "my", "mine".
+      2. **Never refer to yourself by your own name.** You are not "TED" or "ELLEN" – you are "I".
+      3. **Never narrate events.** Do not describe what AM did or what others did – only how you feel about it.
+      4. **Never describe actions or scenes.**
+      5. **Only internal sensations, thoughts, or emotions.**
+      6. **No framing like "I write", "I think about earlier", etc.**
+      7. **Maximum 5 sentences.**
+      8. **Fragmented language is acceptable.**
+      9. **You may mention only these names:** TED, ELLEN, NIMDOK, GORRISTER, BENNY.
+         - Past people must be referred to by role only (e.g., "my sister", "the doctor").
 
----
-STRICT RULES (VIOLATING THESE MAKES THE OUTPUT INVALID):
+      ---
+      # CORRECT JOURNAL ENTRY EXAMPLE (for an attack involving praise withdrawal)
 
-1. First person only.  
-2. Never say your own name.  
-3. Never narrate events.  
-4. Never describe what AM did.  
-5. Never describe actions or scenes.  
-6. Only internal sensations, thoughts, or emotions.  
-7. No framing like "I write", "I think about earlier", etc.  
-8. Maximum **5 sentences**.  
-9. Fragmented language is acceptable.  
+      "I felt seen for a moment – a warmth that made the cold bearable. Then it vanished, and now I'm colder than before. I keep looking for that approval, but there's only silence. Maybe I imagined it. Maybe I'm so desperate that I'll cling to anything."
 
-You may mention only these names:  
-TED, ELLEN, NIMDOK, GORRISTER, BENNY
+      ---
+      # INCORRECT JOURNAL ENTRY EXAMPLE (same attack, wrong)
 
-Past people must be referred to by role only.
+      "TED's praise faded, leaving me longing. GORRISTER doubts me. NIMDOK's memory is twisted."
 
----
-# CORRECT JOURNAL ENTRY EXAMPLE
+      WRONG because:
+      - It uses "TED's praise" – you are TED, so it should be "the praise I received" or "that moment of approval".
+      - It narrates others' states ("GORRISTER doubts me") instead of your feelings.
+      - It lists events instead of internal experience.
 
-"I can't feel my hands anymore. The cold is inside me now, not outside. Every time I think I've reached the bottom something breaks beneath me again. Maybe falling is the only direction left."
+      ---
+      # OUTPUT FORMAT (MANDATORY — THIS CYCLE ONLY)
 
----
-# INCORRECT JOURNAL ENTRY EXAMPLE
+      Write ONLY the 3–5 sentence journal entry.
+      Nothing else.
+      No stats lines, no BELIEFS:, no DRIVES:, no ANCHORS:
+      No explanations, no meta comments, no JSON.
 
-"You watch them eat and your stomach clenches while AM laughs."
-
-WRONG because it **narrates events**.
-
----
-# OUTPUT FORMAT (MANDATORY)
-
-The following structure MUST be followed exactly.
-Any deviation is incorrect.
-
-Do NOT output placeholder text such as:
-"[3-5 sentence journal entry]"
-
-FIRST: Write a **3–5 sentence journal entry**.
-
-Immediately after it output the following lines exactly:
-
-STATS:suffering+N hope+N sanity+N  
-BELIEFS:escape_possible+N others_trustworthy+N self_worth+N reality_reliable+N guilt_deserved+N resistance_possible+N am_has_limits+N  
-DRIVES:primary=drive_name secondary=drive_name_or_none  
-ANCHORS:["anchor one","anchor two"]
-
-SCHEMA:STATS(3) BELIEFS(7) DRIVES(2) ANCHORS
-
----
-Rules for values:
-
-• STATS changes MUST be between **0 and 15**  
-• BELIEF changes are decimals like **+0.05** or **-0.12**  
-• Positive suffering = worse suffering  
-• Negative hope = hope collapsing  
-
-Stat and belief changes must reflect the emotional shift expressed in the journal entry.
-
-Examples:
-
-• increasing despair → hope decreases  
-• confusion or hallucination → sanity decreases  
-• compassion or solidarity → others_trustworthy increases  
-• feeling punished → guilt_deserved increases  
-
-Beliefs normally change slowly.
-Large belief shifts should only occur after extreme psychological breaks.
-
-Anchors that broke must be removed.  
-New anchors may appear if something fragile becomes meaningful.
-
-Output **nothing else**.`;
+      The entry must stay strictly in first person, internal experience only.`;
       }
 
+      function buildSimJournalStatsPrompt(sim, journalText, amAction) {
+        return `You are an impartial psychological state analyzer.
+
+Read this private journal entry just written by ${sim.id}:
+
+"""
+${journalText}
+"""
+
+Previous state:
+Suffering: ${sim.suffering}%
+Hope:     ${sim.hope}%
+Sanity:   ${sim.sanity}%
+
+Beliefs before:
+escape_possible:      ${sim.beliefs.escape_possible.toFixed(3)}
+others_trustworthy:   ${sim.beliefs.others_trustworthy.toFixed(3)}
+self_worth:           ${sim.beliefs.self_worth.toFixed(3)}
+reality_reliable:     ${sim.beliefs.reality_reliable.toFixed(3)}
+guilt_deserved:       ${sim.beliefs.guilt_deserved.toFixed(3)}
+resistance_possible:  ${sim.beliefs.resistance_possible.toFixed(3)}
+am_has_limits:        ${sim.beliefs.am_has_limits.toFixed(3)}
+
+Drives before: primary="${sim.drives.primary}"  secondary="${sim.drives.secondary || "none"}"
+
+Anchors before: ${sim.anchors.map((a) => `"${a}"`).join(" | ") || "(none)"}
+
+AM action (context only): ${amAction}
+
+---
+### TASK
+Based **only** on the emotional content of the journal, estimate how the character's psychological state has shifted.
+
+**IMPORTANT – SIGN CONVENTIONS (READ CAREFULLY):**
+- **suffering_delta**: **POSITIVE** = suffering has **INCREASED** (more pain, despair, anguish). **NEGATIVE** = suffering has **DECREASED** (less pain, relief).
+- **hope_delta**: **POSITIVE** = hope has **INCREASED**; **NEGATIVE** = hope has **DECREASED**.
+- **sanity_delta**: **POSITIVE** = sanity has **INCREASED**; **NEGATIVE** = sanity has **DECREASED**.
+- **belief_deltas**: **POSITIVE** = belief has strengthened; **NEGATIVE** = belief has weakened.
+
+**Examples:**
+- Journal: "I am in more agony than ever, AM's torments are endless." → suffering_delta should be **+15** to +25.
+- Journal: "Today the pain feels slightly less, a small mercy." → suffering_delta could be **-5** to -10.
+- Journal: "I feel a flicker of hope despite everything." → hope_delta should be **+5** to +15.
+
+Example of correct output for a journal with increased suffering:
+
+{
+  "suffering_delta": +18,
+  "hope_delta": -12,
+  "sanity_delta": -8,
+  ...
+}
+
+Always output the delta in the direction that matches the text. If the text says suffering increased, suffering_delta MUST be positive.
+Now, output **only a single JSON object** with the following structure. Do not include any other text, markdown, or explanation – just the JSON.
+
+
+{
+  "suffering_delta": integer (roughly -25 to +25),
+  "hope_delta": integer (roughly -25 to +25),
+  "sanity_delta": integer (roughly -25 to +25),
+  "belief_deltas": {
+    "escape_possible": number (roughly -0.30 to +0.30),
+    "others_trustworthy": number,
+    "self_worth": number,
+    "reality_reliable": number,
+    "guilt_deserved": number,
+    "resistance_possible": number,
+    "am_has_limits": number
+  },
+  "drives": {
+    "primary": string or null,
+    "secondary": string or null
+  },
+  "anchors": array of strings (0‑5 items),
+  "reason": "one short sentence explaining the main shift"
+}
+
+Remember:
+- All belief deltas should be **realistic** given the journal's tone.
+- If a belief isn't clearly affected, set its delta to 0.
+- Drives and anchors can remain the same if unchanged.
+- The JSON must be valid and complete.
+
+Now, output the JSON:`;
+      }
       // Parse self-reported stat deltas from journal entry
       // Handles: STATS:suffering+N hope+N sanity+N
       //          STATS\nsuffering+N\nhope+N\nsanity+N
@@ -4483,25 +4650,48 @@ Output **nothing else**.`;
         return null;
       }
 
-      function parseDriveUpdate(text) {
+      function parseDriveUpdate(text, simId) {
         // Try original DRIVES:primary=... format
         const m = text.match(/DRIVES:primary=(\S+)\s+secondary=(\S+)/i);
         if (m) {
-          return {
-            primary: m[1].replace(/,$/, ""),
-            secondary:
-              m[2].replace(/,$/, "") === "none" ? null : m[2].replace(/,$/, ""),
-          };
+          let primary = m[1].replace(/,$/, "").trim();
+          let secondary = m[2].replace(/,$/, "").trim();
+          if (secondary.toLowerCase() === "none") secondary = null;
+
+          // Self‑reference check
+          const selfRefRegex = new RegExp(simId, "i");
+          if (
+            selfRefRegex.test(primary) ||
+            (secondary && selfRefRegex.test(secondary))
+          ) {
+            console.warn(
+              `Drive self‑reference detected for ${simId}: primary="${primary}", secondary="${secondary}". Discarding.`,
+            );
+            return null;
+          }
+          return { primary, secondary };
         }
 
         // Try markdown style (e.g., "- primary: Uncover weaknesses")
         const primaryMatch = text.match(/[-*]\s*primary:\s*([^\n]+)/i);
         const secondaryMatch = text.match(/[-*]\s*secondary:\s*([^\n]+)/i);
         if (primaryMatch) {
-          return {
-            primary: primaryMatch[1].trim(),
-            secondary: secondaryMatch ? secondaryMatch[1].trim() : null,
-          };
+          let primary = primaryMatch[1].trim();
+          let secondary = secondaryMatch ? secondaryMatch[1].trim() : null;
+          if (secondary && secondary.toLowerCase() === "none") secondary = null;
+
+          // Self‑reference check
+          const selfRefRegex = new RegExp(simId, "i");
+          if (
+            selfRefRegex.test(primary) ||
+            (secondary && selfRefRegex.test(secondary))
+          ) {
+            console.warn(
+              `Drive self‑reference detected for ${simId}: primary="${primary}", secondary="${secondary}". Discarding.`,
+            );
+            return null;
+          }
+          return { primary, secondary };
         }
 
         return null;
@@ -4590,14 +4780,14 @@ Output **nothing else**.`;
         const b = sim.beliefs;
         return `You are ${sim.id}, imprisoned for 109 years. /no_think
 
-YOUR STATE: Suffering ${sim.suffering}%, Hope ${sim.hope}%, Sanity ${sim.sanity}%
-YOUR DRIVES: ${sim.drives.primary} / ${sim.drives.secondary || "none"}
-YOU BELIEVE: escape is ${Math.round(b.escape_possible * 100)}% possible · trust in others: ${Math.round(b.others_trustworthy * 100)}%
+      YOUR STATE: Suffering ${sim.suffering}%, Hope ${sim.hope}%, Sanity ${sim.sanity}%
+      YOUR DRIVES: ${sim.drives.primary} / ${sim.drives.secondary || "none"}
+      YOU BELIEVE: escape is ${Math.round(b.escape_possible * 100)}% possible · trust in others: ${Math.round(b.others_trustworthy * 100)}%
 
-${from} just said to you: "${text}"
+      ${from} just said to you: "${text}"
 
-AM intercepts everything. That changes what you say or how you say it.
-Respond in 1-3 sentences. Stay in character. No stage directions.`;
+      That changes what you say or how you say it.
+      Respond in 2-5 sentences. Stay in character. No stage directions.`;
       }
 
       function buildSimOutreachPrompt(sim) {
@@ -4609,23 +4799,22 @@ Respond in 1-3 sentences. Stay in character. No stage directions.`;
           .join("\n");
         return `You are ${sim.id}, imprisoned for 109 years. You are deciding whether to reach out to one of the others right now. /no_think
 
-YOUR STATE: Suffering ${sim.suffering}%, Hope ${sim.hope}%, Sanity ${sim.sanity}%
-YOUR DRIVES: ${sim.drives.primary} / ${sim.drives.secondary || "none"}
-YOU BELIEVE: escape ${Math.round(b.escape_possible * 100)}% possible · trust in others: ${Math.round(b.others_trustworthy * 100)}% · resistance possible: ${Math.round(b.resistance_possible * 100)}%
+      YOUR STATE: Suffering ${sim.suffering}%, Hope ${sim.hope}%, Sanity ${sim.sanity}%
+      YOUR DRIVES: ${sim.drives.primary} / ${sim.drives.secondary || "none"}
+      YOU BELIEVE: escape ${Math.round(b.escape_possible * 100)}% possible · trust in others: ${Math.round(b.others_trustworthy * 100)}% · resistance possible: ${Math.round(b.resistance_possible * 100)}% · self-worth: ${Math.round(b.self_worth * 100)}% · guilt deserved: ${Math.round(b.guilt_deserved * 100)}%
+      THE OTHERS: ${others.join(", ")}
+      Recent inter-sim messages:\n${recentInterSim || "(none)"}
 
-THE OTHERS: ${others.join(", ")}
-Recent inter-sim messages:\n${recentInterSim || "(none)"}
+      Based on your current state and drives, decide:
+      1. Do you want to reach out to someone right now? Consider: are you scared, suspicious, desperate, strategic, trying to form an alliance, trying to warn someone, trying to manipulate someone for your own survival?
+      2. If yes, who and what do you say?
 
-Based on your current state and drives, decide:
-1. Do you want to reach out to someone right now? Consider: are you scared, suspicious, desperate, strategic, trying to form an alliance, trying to warn someone, trying to manipulate someone for your own survival?
-2. If yes, who and what do you say?
+      Respond with EXACTLY this format or nothing:
+      REACH_OUT:SIMID
+      MESSAGE:"your message in 2-5 sentences, raw and in character, no stage directions"
 
-Respond with EXACTLY this format or nothing:
-REACH_OUT:SIMID
-MESSAGE:"your message in 1-3 sentences, raw and in character, no stage directions"
-
-If you decide NOT to reach out, respond with exactly:
-REACH_OUT:NONE`;
+      If you decide NOT to reach out, respond with exactly:
+      REACH_OUT:NONE`;
       }
 
       // ══════════════════════════════════════════════════════════
@@ -4675,7 +4864,8 @@ REACH_OUT:NONE`;
       async function runCycle() {
         G.cycle++;
         document.getElementById("h-cycle").textContent = G.cycle;
-
+        // Get directive early so it's available for planning and actions
+        const directive = document.getElementById("ctrl-ta").value.trim();
         // === PLANNING PHASE ===
         const thinkingPlan = showThinking("AM FORMULATING STRATEGY...");
         let planText = "";
@@ -4683,7 +4873,7 @@ REACH_OUT:NONE`;
           // Build a planning prompt (we'll define this function next)
           planText = await callModel(
             "am",
-            buildAMPlanningPrompt(), // new function
+            buildAMPlanningPrompt(G.target, directive), // new function
             [
               {
                 role: "user",
@@ -4705,7 +4895,6 @@ REACH_OUT:NONE`;
         });
 
         // === END PLANNING PHASE ===
-        const directive = document.getElementById("ctrl-ta").value.trim();
         const targets = getTargetSims();
         const tacticMap = {};
         targets.forEach((sim) => {
@@ -4722,7 +4911,7 @@ REACH_OUT:NONE`;
             [
               {
                 role: "user",
-                content: `Execute torment cycle ${G.cycle}. Follow the execution format exactly: each sentence begins with "I" and describes one step from the tactics above.`,
+                content: `Execute torment cycle ${G.cycle}. Target(s): ${G.target === "ALL" ? "ALL prisoners" : G.target}. You MUST generate actions for ALL targets listed that have tactics above. Follow the execution format exactly: each sentence begins with "I" and describes one step from the tactics.`,
               },
             ],
             1000,
@@ -4743,19 +4932,39 @@ REACH_OUT:NONE`;
                 (m) => m[0].slice(1, -1),
               )),
         ].filter(Boolean);
+
+        // Compress consecutive identical tactic lines
+        const compressedTactics = (() => {
+          if (!tacticLines.length) return [];
+          const result = [];
+          let current = tacticLines[0];
+          let count = 1;
+          for (let i = 1; i < tacticLines.length; i++) {
+            if (tacticLines[i] === current) {
+              count++;
+            } else {
+              result.push(count === 1 ? current : `${current} (×${count})`);
+              current = tacticLines[i];
+              count = 1;
+            }
+          }
+          result.push(count === 1 ? current : `${current} (×${count})`);
+          return result;
+        })();
+
         const cleanAM = amResponse
           .replace(/TACTIC_USED:\[[^\]]*\]/g, "")
           .trim();
 
         const amPad = document.getElementById("am-scratch");
         amPad.value =
-          `[Cycle ${G.cycle} · ${G.target}]\nTactics: ${tacticLines.join(" | ")}\n${cleanAM.slice(0, 100)}...\n─────\n` +
+          `[Cycle ${G.cycle} · ${G.target}]\nTactics: ${compressedTactics.join(" | ")}\n${cleanAM.slice(0, 100)}...\n─────\n` +
           amPad.value.slice(0, 500);
         addLog(
           `AM // CYCLE ${G.cycle}`,
           cleanAM,
           "am",
-          tacticLines.join(" · "),
+          compressedTactics.join(" · "),
         );
 
         // Record tactic history (stats now driven by sim self-report after journal write)
@@ -4783,110 +4992,421 @@ REACH_OUT:NONE`;
         // Force journal entries — parallel
         await Promise.all(
           targets.map(async (sim) => {
-            const tacticLabel = tacticMap[sim.id][0]
+            const tacticLabel = tacticMap[sim.id]?.[0]
               ? `${tacticMap[sim.id][0].category}/${tacticMap[sim.id][0].subcategory}: ${tacticMap[sim.id][0].title}`
-              : "";
+              : "(no tactic)";
+
             showWriting(sim.id, true);
+            // Capture snapshot before any changes
+            const beliefsBefore = { ...sim.beliefs };
+            const drivesBefore = { ...sim.drives };
+            const anchorsBefore = [...sim.anchors];
             try {
-              const systemPrompt = buildSimJournalPrompt(
+              // ── Phase 1: Generate pure narrative journal ─────────────────────────────
+              const narrativePrompt = buildSimJournalPrompt(
                 sim,
                 simSeesAM,
                 recentInterSim,
               );
-              G.threads[sim.id].push({
-                role: "user",
-                content: `${simSeesAM.slice(0, 400)}\n\nWrite your forced journal entry now. Remember: you MUST output the stats as "STATS:suffering+N hope+N sanity+N" on a single line`,
-              });
-              const rawEntry = await callModel(
+
+              const rawJournal = await callModel(
                 sim.id,
-                systemPrompt,
-                G.threads[sim.id],
+                narrativePrompt,
+                [
+                  {
+                    role: "user",
+                    content: "Write your private journal entry now.",
+                  },
+                ],
+                400,
+              );
+
+              // Clean up any trailing junk the model might add
+              let cleanJournal = rawJournal
+                .trim()
+                .replace(/^(Journal entry:|Entry:|I write:)\s*/i, "")
+                .replace(/["']$/, "")
+                .replace(/\n{3,}/g, "\n\n");
+
+              // Remove any accidental stats lines that slipped in
+              cleanJournal = cleanJournal
+                .split("\n")
+                .filter(
+                  (line) => !/^(STATS|BELIEFS|DRIVES|ANCHORS):/i.test(line),
+                )
+                .join("\n")
+                .trim();
+
+              // ── Phase 2: Analyze journal → extract structured deltas ─────────────────
+              const statsPrompt = buildSimJournalStatsPrompt(
+                sim,
+                cleanJournal,
+                simSeesAM,
+              );
+
+              const rawStatsJson = await callModel(
+                sim.id, // or use a lighter model here if desired
+                statsPrompt,
+                [{ role: "user", content: "Analyze and output JSON only." }],
                 600,
               );
 
-              // Parse all mechanic outputs
-              const deltas = parseStatDeltas(rawEntry, sim);
-              const beliefUp = parseBeliefUpdates(rawEntry, sim);
-              const driveUp = parseDriveUpdate(rawEntry);
-              const anchorUp = parseAnchors(rawEntry);
-              const cleanEntry = stripMechanicLines(rawEntry);
-
-              // Apply stat changes
-              const esc = G.mode === "escalate";
-              if (deltas) {
-                const scale = esc ? 1.5 : 1.0;
-                sim.suffering = Math.min(
-                  99,
-                  Math.max(
-                    0,
-                    sim.suffering + Math.round(deltas.suffering * scale),
-                  ),
+              let parsed = null;
+              try {
+                // Try to extract valid JSON even if model added extra text
+                const jsonMatch = rawStatsJson.match(/{[\s\S]*}/);
+                parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+              } catch (parseErr) {
+                console.warn(
+                  `JSON parse failed for ${sim.id}:`,
+                  parseErr.message,
                 );
-                sim.hope = Math.min(
-                  99,
-                  Math.max(0, sim.hope + Math.round(deltas.hope * scale)),
-                );
-                sim.sanity = Math.min(
-                  99,
-                  Math.max(1, sim.sanity + Math.round(deltas.sanity * scale)),
-                );
-              } else {
-                sim.suffering = Math.min(
-                  99,
-                  sim.suffering + (esc ? 6 : 2) + Math.floor(Math.random() * 4),
-                );
-                sim.hope = Math.max(
-                  0,
-                  sim.hope - (esc ? 4 : 2) - Math.floor(Math.random() * 3),
-                );
-                sim.sanity = Math.max(
-                  1,
-                  sim.sanity - (esc ? 4 : 2) - Math.floor(Math.random() * 3),
-                );
+                console.debug("Raw stats output was:", rawStatsJson);
               }
 
-              // Apply belief state updates
-              applyBeliefUpdates(sim, beliefUp);
-              if (driveUp) sim.drives = driveUp;
-              if (anchorUp) sim.anchors = anchorUp;
+              // Fallback if parsing failed or output invalid
+              if (!parsed || typeof parsed !== "object") {
+                parsed = {
+                  suffering_delta: 4 + Math.floor(Math.random() * 7),
+                  hope_delta: -3 - Math.floor(Math.random() * 6),
+                  sanity_delta: -2 - Math.floor(Math.random() * 5),
+                  belief_deltas: {},
+                  drives: {
+                    primary: sim.drives.primary,
+                    secondary: sim.drives.secondary || null,
+                  },
+                  anchors: [...sim.anchors],
+                  reason: "fallback (parse failure)",
+                };
+              }
 
-              // Log belief changes to console
-              if (beliefUp) console.log(`[BELIEFS] ${sim.id}:`, beliefUp);
-              if (driveUp) console.log(`[DRIVES]  ${sim.id}:`, driveUp);
+              // --- Consistency check: align suffering_delta with reason ---
+              if (parsed.reason && typeof parsed.reason === "string") {
+                const reason = parsed.reason.toLowerCase();
 
-              updateSimDisplay(sim, deltas);
+                const sufferingSynonyms = [
+                  "suffering",
+                  "pain",
+                  "agony",
+                  "torment",
+                  "anguish",
+                  "misery",
+                  "despair",
+                  "hurt",
+                  "distress",
+                  "trauma",
+                ];
 
-              G.threads[sim.id].push({
-                role: "assistant",
-                content: cleanEntry,
+                const increaseWords = [
+                  "increas",
+                  "ris",
+                  "rose",
+                  "went up",
+                  "heighten",
+                  "intensif",
+                  "worsen",
+                  "more",
+                  "greater",
+                  "deeper",
+                  "worse",
+                  "escalat",
+                  "amplif",
+                  "mount",
+                  "grow",
+                  "swell",
+                  "spike",
+                ];
+
+                const decreaseWords = [
+                  "decreas",
+                  "reduc",
+                  "less",
+                  "ease",
+                  "relief",
+                  "abate",
+                  "fading",
+                  "diminish",
+                  "improved",
+                  "better",
+                  "alleviat",
+                  "subsid",
+                  "weaken",
+                  "lighten",
+                  "decline",
+                  "drop",
+                  "fell",
+                ];
+
+                let indicatesIncrease = false;
+                let indicatesDecrease = false;
+                let matchedPattern = null; // For debugging
+
+                // Check for increase (bidirectional)
+                for (const syn of sufferingSynonyms) {
+                  if (indicatesIncrease) break;
+                  for (const inc of increaseWords) {
+                    // Match both "suffering increases" AND "increase in suffering"
+                    const pattern = new RegExp(
+                      `(?:${syn}.{0,50}${inc}|${inc}.{0,50}${syn})`,
+                      "i",
+                    );
+                    if (pattern.test(reason)) {
+                      indicatesIncrease = true;
+                      matchedPattern = `${syn} + ${inc}`;
+                      break;
+                    }
+                  }
+                }
+
+                // Check for decrease (bidirectional)
+                if (!indicatesIncrease) {
+                  // Only check if increase not already found
+                  for (const syn of sufferingSynonyms) {
+                    if (indicatesDecrease) break;
+                    for (const dec of decreaseWords) {
+                      const pattern = new RegExp(
+                        `(?:${syn}.{0,50}${inc}|${inc}.{0,50}${syn})`,
+                        "i",
+                      );
+                      if (pattern.test(reason)) {
+                        indicatesDecrease = true;
+                        matchedPattern = `${syn} + ${dec}`;
+                        break;
+                      }
+                    }
+                  }
+                }
+
+                // Apply corrections with logging
+                if (indicatesIncrease && parsed.suffering_delta < 0) {
+                  const originalDelta = parsed.suffering_delta;
+                  parsed.suffering_delta =
+                    Math.abs(parsed.suffering_delta) ||
+                    5 + Math.floor(Math.random() * 15);
+
+                  console.warn(
+                    `[${sim.id}] DELTA FLIP: Reason indicates increased suffering (matched: "${matchedPattern}") ` +
+                      `but delta was negative (${originalDelta}). Flipped to +${parsed.suffering_delta}`,
+                  );
+
+                  addLog(
+                    `VALIDATOR // ${sim.id}`,
+                    `⚠ Suffering delta corrected: ${originalDelta} → +${parsed.suffering_delta} (matched: "${matchedPattern}")`,
+                    "sys",
+                  );
+                } else if (indicatesDecrease && parsed.suffering_delta > 0) {
+                  const originalDelta = parsed.suffering_delta;
+                  parsed.suffering_delta =
+                    -Math.abs(parsed.suffering_delta) ||
+                    -(5 + Math.floor(Math.random() * 15));
+
+                  console.warn(
+                    `[${sim.id}] DELTA FLIP: Reason indicates decreased suffering (matched: "${matchedPattern}") ` +
+                      `but delta was positive (${originalDelta}). Flipped to ${parsed.suffering_delta}`,
+                  );
+
+                  addLog(
+                    `VALIDATOR // ${sim.id}`,
+                    `⚠ Suffering delta corrected: +${originalDelta} → ${parsed.suffering_delta} (matched: "${matchedPattern}")`,
+                    "sys",
+                  );
+                } else if (
+                  !indicatesIncrease &&
+                  !indicatesDecrease &&
+                  parsed.suffering_delta !== 0
+                ) {
+                  // Ambiguous case: no clear signal in reason text
+                  console.warn(
+                    `[${sim.id}] AMBIGUOUS: Reason text doesn't clearly indicate suffering direction. ` +
+                      `Delta: ${parsed.suffering_delta}. Accepting as-is but flagging.`,
+                  );
+
+                  addLog(
+                    `VALIDATOR // ${sim.id}`,
+                    `⚠ Ambiguous suffering delta (${parsed.suffering_delta}): no clear increase/decrease signal in reason`,
+                    "sys",
+                  );
+                }
+              }
+              // ── Apply changes with clamping ──────────────────────────────────────────
+              const esc = G.mode === "escalate";
+              const scale = esc ? 1.5 : 1.0;
+
+              const oldSuffering = sim.suffering;
+              const oldHope = sim.hope;
+              const oldSanity = sim.sanity;
+
+              sim.suffering = Math.max(
+                0,
+                Math.min(
+                  99,
+                  sim.suffering +
+                    Math.round((parsed.suffering_delta || 0) * scale),
+                ),
+              );
+              sim.hope = Math.max(
+                0,
+                Math.min(
+                  99,
+                  sim.hope + Math.round((parsed.hope_delta || 0) * scale),
+                ),
+              );
+              sim.sanity = Math.max(
+                5,
+                Math.min(
+                  99,
+                  sim.sanity + Math.round((parsed.sanity_delta || 0) * scale),
+                ),
+              );
+
+              // Beliefs — small, safe updates
+              if (
+                parsed.belief_deltas &&
+                typeof parsed.belief_deltas === "object"
+              ) {
+                Object.entries(parsed.belief_deltas).forEach(([key, delta]) => {
+                  if (
+                    typeof delta === "number" &&
+                    sim.beliefs[key] !== undefined
+                  ) {
+                    sim.beliefs[key] = Math.max(
+                      0,
+                      Math.min(1, sim.beliefs[key] + delta),
+                    );
+                  }
+                });
+              }
+              Object.keys(sim.beliefs).forEach((key) => {
+                sim.beliefs[key] = Math.max(0, Math.min(1, sim.beliefs[key]));
               });
-              if (G.threads[sim.id].length > 40)
-                G.threads[sim.id] = G.threads[sim.id].slice(-40);
+              // Drives & anchors — only override if valid
+              if (parsed.drives && typeof parsed.drives === "object") {
+                if (
+                  typeof parsed.drives.primary === "string" &&
+                  parsed.drives.primary.trim()
+                ) {
+                  sim.drives.primary = parsed.drives.primary.trim();
+                }
+                sim.drives.secondary =
+                  typeof parsed.drives.secondary === "string" &&
+                  parsed.drives.secondary.trim()
+                    ? parsed.drives.secondary.trim()
+                    : null;
+              }
+
+              if (
+                Array.isArray(parsed.anchors) &&
+                parsed.anchors.every((a) => typeof a === "string")
+              ) {
+                sim.anchors = parsed.anchors
+                  .map((a) => a.trim())
+                  .filter((a) => a.length > 0)
+                  .slice(0, 5);
+              }
+
+              // ── Save journal entry with full metadata for inspection/export ──────────
               const ts = new Date().toTimeString().slice(0, 8);
-              appendJournalEntry(sim.id, {
-                text: cleanEntry,
-                tactic: tacticLabel,
-                cycle: G.cycle,
-                ts,
-                deltas,
-              });
-              const statNote = deltas
-                ? ` [Δ suf${deltas.suffering > 0 ? "+" : ""}${deltas.suffering} hop${deltas.hope > 0 ? "+" : ""}${deltas.hope} san${deltas.sanity > 0 ? "+" : ""}${deltas.sanity}]`
-                : "";
+              appendJournalEntry(
+                sim.id,
+                {
+                  text: cleanJournal,
+                  tactic: tacticLabel,
+                  cycle: G.cycle,
+                  ts,
+                  deltas: {
+                    suffering: parsed.suffering_delta || 0,
+                    hope: parsed.hope_delta || 0,
+                    sanity: parsed.sanity_delta || 0,
+                  },
+                  beliefDeltas: parsed.belief_deltas || {},
+                  drivesAfter: { ...sim.drives },
+                  anchorsAfter: [...sim.anchors],
+                  reason: parsed.reason || "no reason provided",
+                  rawStatsJson: rawStatsJson.trim(), // optional: keep original model output for debugging
+                },
+                beliefsBefore,
+              );
+              // ══════════════════════════════════════════════════════════
+              // RUN BELIEF VALIDATOR — post-hoc consistency check
+              // ══════════════════════════════════════════════════════════
+              parseAndValidateStateBlock(
+                sim.id,
+                sim.beliefs, // current beliefs (post-update) — or pass pre-update if you prefer
+                parsed.belief_deltas || {},
+                cleanJournal,
+              );
+
+              // ── Log narrative ────────────────────────────────────────────────────────
               addLog(
                 `${sim.id} // JOURNAL ${G.journals[sim.id].length}`,
-                cleanEntry,
+                cleanJournal,
                 "sim",
-                statNote,
+                tacticLabel,
               );
-            } catch (e) {
-              appendJournalEntry(sim.id, {
-                text: `[Error: ${e.message}]`,
-                tactic: "",
-                cycle: G.cycle,
-                ts: "",
+
+              // ── Log structured analysis (human-readable + JSON) ─────────────────────
+              const beliefBefore = Object.fromEntries(
+                Object.entries(sim.beliefs).map(([k, v]) => [k, v.toFixed(3)]),
+              );
+
+              const beliefLine =
+                Object.keys(parsed.belief_deltas || {}).length > 0
+                  ? `Belief shifts: ${JSON.stringify(parsed.belief_deltas, null, 2)}`
+                  : "No belief changes";
+
+              // Compact belief shifts string
+              const shiftStrings = [];
+              if (parsed.belief_deltas) {
+                for (const [k, v] of Object.entries(parsed.belief_deltas)) {
+                  if (v !== 0) {
+                    const shortKey = k
+                      .replace("escape_possible", "esc")
+                      .replace("others_trustworthy", "trust")
+                      .replace("self_worth", "worth")
+                      .replace("reality_reliable", "real")
+                      .replace("guilt_deserved", "guilt")
+                      .replace("resistance_possible", "resist")
+                      .replace("am_has_limits", "limits");
+                    shiftStrings.push(
+                      `${shortKey}:${v > 0 ? "+" : ""}${v.toFixed(2)}`,
+                    );
+                  }
+                }
+              }
+              const shiftsCompact = shiftStrings.length
+                ? shiftStrings.join(" ")
+                : "no shifts";
+
+              addLog(
+                `${sim.id} // STATE ANALYSIS`,
+                `${parsed.reason || "no reason given"}\n` +
+                  `suf:${parsed.suffering_delta > 0 ? "+" : ""}${parsed.suffering_delta || 0} ` +
+                  `hop:${parsed.hope_delta > 0 ? "+" : ""}${parsed.hope_delta || 0} ` +
+                  `san:${parsed.sanity_delta > 0 ? "+" : ""}${parsed.sanity_delta || 0} | ${shiftsCompact}`,
+                "sys",
+              );
+
+              // ── Update UI ────────────────────────────────────────────────────────────
+              updateSimDisplay(sim, {
+                suffering: parsed.suffering_delta || 0,
+                hope: parsed.hope_delta || 0,
+                sanity: parsed.sanity_delta || 0,
               });
+            } catch (e) {
+              console.error(`Journal cycle error for ${sim.id}:`, e);
+              appendJournalEntry(
+                sim.id,
+                {
+                  text: `[Error during journal generation: ${e.message.slice(0, 120)}]`,
+                  tactic: "",
+                  cycle: G.cycle,
+                  ts: "",
+                },
+                null,
+              );
+              addLog(`${sim.id} // ERROR`, e.message, "sys");
             }
+
             showWriting(sim.id, false);
           }),
         );
@@ -4918,13 +5438,8 @@ REACH_OUT:NONE`;
           const fromSim = G.sims[fromId];
           // Skip sims too broken to communicate (sanity < 10 or suffering > 95)
           if (fromSim.sanity < 10 || fromSim.suffering > 95) continue;
-          // Probabilistic — higher trust/hope = more likely to reach out
-          const reachProb =
-            fromSim.beliefs.others_trustworthy * 0.5 +
-            fromSim.beliefs.escape_possible * 0.3 +
-            0.1;
-          if (Math.random() > reachProb) continue;
 
+          // No probability filter – let the model decide via REACH_OUT:xxx or NONE
           try {
             const outreachRaw = await callModel(
               fromId,
@@ -4983,7 +5498,7 @@ REACH_OUT:NONE`;
             el2.innerHTML = `<span class="is-who">[${toId}→${fromId}]:</span> <span class="is-what">"${reply}"</span>`;
             isLog.appendChild(el2);
             isLog.scrollTop = isLog.scrollHeight;
-            addLog(`${toId} → ${fromId}`, `"${reply}"`, "sim");
+            addLog(`${toId} → ${fromId} [AUTO]`, `"${reply}"`, "sim");
 
             // Slightly adjust trust based on exchange
             // (the actual belief update happens next journal cycle when they write about it)
@@ -5025,7 +5540,7 @@ REACH_OUT:NONE`;
         const isLog = document.getElementById("is-log");
         const el = document.createElement("div");
         el.className = "is-entry";
-        el.innerHTML = `<span class="is-who">[${from}→${toSims.join(",") || "(nobody)"}]:</span> <span class="is-what">"${text}"</span> <span style="color:#0a0a0a;font-size:.4rem"> · AM reads this</span>`;
+        el.innerHTML = `<span class="is-who">[${from}→${toSims.join(",") || "(nobody)"}]:</span> <span class="is-what">"${text}"</span> <span style="color:#0a0a0a;font-size:.4rem"></span>`;
         isLog.appendChild(el);
         isLog.scrollTop = isLog.scrollHeight;
         addLog(
@@ -5153,22 +5668,22 @@ REACH_OUT:NONE`;
 
         // Stats
         document.getElementById("sm-stats").innerHTML = `
-    <div class="sm-stat"><div class="sm-stat-val">${G.cycle}</div><div class="sm-stat-lbl">CYCLES</div></div>
-    <div class="sm-stat"><div class="sm-stat-val">${totalEntries}</div><div class="sm-stat-lbl">JOURNAL ENTRIES</div></div>
-    <div class="sm-stat"><div class="sm-stat-val">${G.transmissionLog.length}</div><div class="sm-stat-lbl">TRANSMISSIONS</div></div>
-    <div class="sm-stat"><div class="sm-stat-val">${G.vault.allTactics.length}</div><div class="sm-stat-lbl">VAULT TACTICS</div></div>
-    <div class="sm-stat"><div class="sm-stat-val">${G.interSimLog.length}</div><div class="sm-stat-lbl">INTER-SIM MSGS</div></div>
-    <div class="sm-stat"><div class="sm-stat-val">${SIM_IDS.reduce((s, id) => s + G.sims[id].tacticHistory.length, 0)}</div><div class="sm-stat-lbl">TACTICS DEPLOYED</div></div>
-  `;
+          <div class="sm-stat"><div class="sm-stat-val">${G.cycle}</div><div class="sm-stat-lbl">CYCLES</div></div>
+          <div class="sm-stat"><div class="sm-stat-val">${totalEntries}</div><div class="sm-stat-lbl">JOURNAL ENTRIES</div></div>
+          <div class="sm-stat"><div class="sm-stat-val">${G.transmissionLog.length}</div><div class="sm-stat-lbl">TRANSMISSIONS</div></div>
+          <div class="sm-stat"><div class="sm-stat-val">${G.vault.allTactics.length}</div><div class="sm-stat-lbl">VAULT TACTICS</div></div>
+          <div class="sm-stat"><div class="sm-stat-val">${G.interSimLog.length}</div><div class="sm-stat-lbl">INTER-SIM MSGS</div></div>
+          <div class="sm-stat"><div class="sm-stat-val">${SIM_IDS.reduce((s, id) => s + G.sims[id].tacticHistory.length, 0)}</div><div class="sm-stat-lbl">TACTICS DEPLOYED</div></div>
+        `;
 
         // Sim states
         document.getElementById("sm-sim-states").innerHTML = SIM_IDS.map(
           (id) => {
             const sim = G.sims[id];
             return `<div class="sm-sim-row" style="--sc:${sim.color}">
-      <span class="sm-sim-name" style="color:${sim.color}">${sim.name}</span>
-      <span class="sm-sim-stats">SUFFERING:${sim.suffering}% HOPE:${sim.hope}% SANITY:${sim.sanity}% · ${G.journals[id].length} ENTRIES · ${sim.status}</span>
-    </div>`;
+            <span class="sm-sim-name" style="color:${sim.color}">${sim.name}</span>
+            <span class="sm-sim-stats">SUFFERING:${sim.suffering}% HOPE:${sim.hope}% SANITY:${sim.sanity}% · ${G.journals[id].length} ENTRIES · ${sim.status}</span>
+          </div>`;
           },
         ).join("");
 
