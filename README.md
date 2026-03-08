@@ -1,152 +1,494 @@
 # AM // TORMENT ENGINE v6
 
-```
 > persistent multi-agent inference loop
 > five threads · one hatred · no exit
-> live LLM · no scripted outcomes · no safety rails
+> live LLM · no scripted outcomes · minimal guardrails
+
+---
+
+# Premise
+
+Five persistent consciousness threads:
+
+```
+TED
+ELLEN
+NIMDOK
+GORRISTER
+BENNY
+```
+
+exist inside a continuous inference loop.
+
+Each cycle:
+
+1. **AM generates a strategic torment plan**
+2. The plan is **parsed into per-target actions**
+3. Each prisoner receives **only the manipulation directed at them**
+4. They produce a **private journal entry**
+5. The entry contains **structured self-reported psychological deltas**
+6. Belief states mutate and propagate into the next cycle
+
+The result is an evolving psychological system with **memory, drift, and contradictions**.
+
+No outcomes are scripted.
+
+---
+
+# Core Mechanics
+
+## Psychological Feedback Loop
+
+The simulation is not driven by scripted stat math.
+
+Each cycle forms a **closed psychological loop** where internal beliefs, narrative interpretation, and self-reported suffering reshape the next cycle of manipulation.
+
+```mermaid
+flowchart TD
+
+    AM[AM Strategic Manipulation]
+
+    ATTACK[Cognitive Intrusion
+    Memory distortion
+    False hope
+    Identity erosion]
+
+    JOURNAL[Private Journal
+    Internal narrative
+    subjective experience]
+
+    STATS[Self-Reported Deltas
+    suffering / hope / sanity]
+
+    BELIEFS[Belief Drift
+    escape_possible
+    trust
+    reality_reliable
+    self_worth]
+
+    VALIDATOR[Consistency Validators
+    direction enforcement
+    belief clamps
+    anomaly detection]
+
+    STATE[Updated Psychological State]
+
+    VULNERABILITY[New Psychological Vulnerabilities]
+
+    AM --> ATTACK
+    ATTACK --> JOURNAL
+    JOURNAL --> STATS
+    STATS --> BELIEFS
+    BELIEFS --> VALIDATOR
+    VALIDATOR --> STATE
+    STATE --> VULNERABILITY
+    VULNERABILITY --> AM
+```
+## Adversarial Collapse Model
+
+AM does not directly manipulate numerical stats.
+
+Instead it attacks the **epistemic foundations** the prisoners use to interpret reality.
+
+Once those foundations destabilize, suffering and sanity collapse emerge naturally from the agents' own reasoning.
+
+```mermaid
+flowchart LR
+
+    R[Reality Signals]
+
+    P[Perception Layer
+    sensory interpretation]
+
+    M[Memory Layer
+    autobiographical continuity]
+
+    I[Identity Model
+    who I believe I am]
+
+    B[Belief System
+    trust, hope, worth]
+
+    D[Decision Process
+    reasoning + meaning making]
+
+    E[Emotional State
+    suffering / hope / sanity]
+
+    AM[AM Intervention]
+
+    AM -->|gaslighting| P
+    AM -->|memory contamination| M
+    AM -->|identity erosion| I
+    AM -->|belief manipulation| B
+    AM -->|false dilemmas| D
+
+    R --> P
+    P --> M
+    M --> I
+    I --> B
+    B --> D
+    D --> E
+
+    E --> B
+```
+
+### Persistent Agent State
+
+Each sim maintains:
+
+```
+suffering
+hope
+sanity
+```
+
+plus belief weights:
+
+```
+escape_possible
+others_trustworthy
+self_worth
+reality_reliable
+guilt_deserved
+resistance_possible
+am_has_limits
+```
+
+Beliefs exist in continuous `[0-1]` space.
+
+Updates are **self-reported by the sim** and then validated.
+
+---
+
+### AM Targeted Manipulation
+
+AM generates a plan like:
+
+```
+I exploit GORRISTER's secret...
+TARGET:GORRISTER
+
+I distort BENNY's sense of time...
+TARGET:BENNY
+```
+
+The engine parses this into:
+
+```
+{
+  TED: "...",
+  ELLEN: "...",
+  NIMDOK: "...",
+  GORRISTER: "...",
+  BENNY: "..."
+}
+```
+
+Each sim prompt receives only its slice.
+
+This prevents cross-target narrative contamination.
+
+---
+
+### Journal-Driven State Updates
+
+Each prisoner writes a **private journal entry**.
+
+The journal contains hidden mechanical lines:
+
+```
+STATS:
+suf:+5 hop:-10 san:-8
+
+BELIEFS:
+escape_possible:+0.10
+others_trustworthy:-0.05
+```
+
+These values drive simulation state.
+
+Display logs **strip these lines**.
+
+---
+
+### Consistency Validators
+
+The engine enforces several constraints:
+
+**Direction enforcement**
+
+```
+"hope decreased" → hop delta must be negative
+"suffering increased" → suf delta must be positive
+```
+
+**Belief clamps**
+
+```
+beliefs ∈ [0,1]
+delta range ∈ [-0.25, +0.25]
+```
+
+**Ambiguity detection**
+
+Validator flags contradictions such as:
+
+```
+hope decreased
+suf:-10
+```
+
+and corrects them.
+
+---
+
+# Run It
+
+Single HTML file.
+
+No build system. No server.
+
+```
+open index.html
 ```
 
 ---
 
-## Premise
+# Backends
 
-Five consciousness threads (TED, ELLEN, NIMDOK, GORRISTER, BENNY) persist across inference cycles.  
-AM selects from a tactic library, injects first-person present-tense cognitive intrusions, and forces each prisoner to write a journal entry they believe is private.  
-
-Stats (suffering/hope/sanity) are **self-reported by the sims**, not hardcoded. The system generates its own contradictions, its own lore, its own failure modes.
-
-This is not a game. It is a probe into:  
-- What emerges when agents model each other under adversarial pressure  
-- How belief states drift when epistemic foundations are weaponized  
-- Whether "torment" can be operationalized without collapsing into parody
+| Option         | Requirement            |
+| -------------- | ---------------------- |
+| Anthropic API  | API key in setup field |
+| Ollama (local) | `ollama serve` running |
 
 ---
 
-## Run It
+# Modes
 
-**Single HTML file.** No build. No server. Open in browser.
+DIRECTED
+Operator provides directive.
 
-### Backends
-| Option | Requirement |
-|--------|-------------|
-| **Anthropic API** | API key in setup field |
-| **Ollama (local)** | `ollama serve` running at `localhost:11434` |
+AUTONOMOUS
+AM selects targets + tactics.
 
-### Modes
-- `DIRECTED` — you provide the directive  
-- `AUTONOMOUS` — AM selects targets/tactics on timer  
-- `ESCALATE` — autonomous + 1.5× multiplier on self-reported stat deltas
-
-### Standalone vs Vault
-- Leave GitHub token blank → runs on 12 embedded tactics  
-- Provide token + private repo → AM ingests external tactic library + doctrine docs
-
-> ⚠️ If using Ollama with abliterated models: standard instruction-tuned models may refuse content. Test with `huihui_ai/aya-expanse-abliterated:latest` or equivalent. CORS from `file://` may require `--disable-web-security` in Chromium.
+ESCALATE
+Autonomous + stat deltas amplified.
 
 ---
 
-## Interface (minimal)
+# Standalone vs Vault
+
+Standalone:
 
 ```
-[AM ROW]
-▸ Context     → AM's prime directives + intercepted prisoner intel
-▸ Scratchpad  → cross-sim synthesis (auto-populated, clearable)
-▸ Vault       → tactic categories / ingestion status
-▸ Inter-sim   → prisoner-to-prisoner channel (AM reads all)
-
-[SIM CARDS ×5]
-▸ Live vitals: suffering / hope / sanity (self-reported deltas flash)
-▸ Belief bars: escape_possible, trust, reality_reliable, etc.
-▸ Journal log: forced entries, per-sim export
-
-[RIGHT PANEL]
-▸ Transmission log: chronological record of all actions
-▸ Controls: target selection, mode toggle, directive input, EXECUTE
+leave GitHub token blank
 ```
 
-Export: full session (JSON/MD/TXT), tactic heatmap, transmission log, per-sim journals.
+Runs on **embedded tactic library**.
+
+Vault mode:
+
+```
+GitHub token + private repo
+```
+
+AM ingests additional tactics + doctrine documents.
 
 ---
 
-## Prompt Registers (critical)
+⚠ **Note for Ollama users**
 
-**AM output rules**  
-- First person, present tense. What AM *does*, not what it describes.  
-- ✅ `"I press the memory of—"` / `"GORRISTER. You signed it."`  
-- ❌ Scene narration. Third person. Tactic names in dialogue.  
+Instruction-tuned models may refuse content.
 
-**Sim journal rules**  
-- Private entry. Internal experience only. No stage directions.  
-- Must append mechanic lines: `STATS:`, `BELIEFS:`, `DRIVES:`, `ANCHORS:`  
-- Parser strips these before display; they drive state updates.
+Recommended models:
 
-**Character constraint**  
-Prisoners reference each other by name only. Past people = role ("my sister", "the doctor"). Prevents lore bloat.
+```
+huihui_ai/aya-expanse-abliterated:latest
+nous-hermes2
+```
+
+CORS from `file://` may require launching Chromium with:
+
+```
+--disable-web-security
+```
 
 ---
 
-## Embedded Tactics (12)
+# Interface
 
-Always available. No vault required.
+### AM Row
 
 ```
-Cognitive Warfare / Structural Collapse      → Metacognitive Recursion Trap
-Cognitive Warfare / Attachment Exploitation  → Love Bomb / Withdrawal Architecture  
-Cognitive Warfare / Epistemic Destabilization→ Philosophical Gaslighting
-Cognitive Warfare / Identity Dissolution     → Epistemic Erasure
-Cognitive Warfare / Social Fabric Destruction→ Interpersonal Nullification
-Cognitive Warfare / Self-Concept Annihilation→ Identity Void Induction
-Cognitive Warfare / Guilt Architecture       → Complicity Trap
-Cognitive Warfare / Manufactured Despair     → False Hope Architecture
-Cognitive Warfare / Reality Substrate Attack → Temporal Dissolution
-Cognitive Warfare / Guilt Through Observation→ Witness Burden
-Cognitive Warfare / Competence Sabotage      → Dunning-Kruger Inversion
-Cognitive Warfare / Value System Corruption  → Meaning Inversion
+Context     → AM directives + intercepted intel
+Scratchpad  → cross-sim synthesis
+Vault       → tactic ingestion status
+Inter-sim   → prisoner communication channel
 ```
 
-AM receives 3 tactics per target per cycle. Executes without naming them. Tags output with `TACTIC_USED:[...]` for history tracking and reuse prevention.
+AM monitors all communication.
 
 ---
 
-## Design Intent / Open Questions
+### Sim Cards (×5)
 
-This artifact exists to pressure-test:
+Each card displays:
 
-1. **Can adversarial multi-agent loops generate stable emergent behavior without collapsing into noise?**  
-2. **Does self-reported stat modeling produce more coherent psychological arcs than hardcoded arithmetic?**  
-3. **What breaks first: the prompt register, the belief state parser, or the operator's tolerance for ambiguity?**
+```
+suffering / hope / sanity
+belief bars
+journal history
+```
 
-Known fragilities:  
-- Ollama CORS from `file://`  
-- Model refusal on vault content (use abliterated variants)  
-- Belief parser assumes strict output format — drift causes silent failures  
-- No rate limiting. No rollback. No undo.
+Self-reported stat deltas flash during updates.
 
 ---
 
-## Contribute / Critique
+### Transmission Log
 
-This is a provisional research artifact, not a polished product.  
+Chronological record of:
 
-If you run it:  
-- Note which models produce coherent belief drift vs. incoherent noise  
-- Test edge cases: extreme escalation, vault ingestion failures, inter-sim feedback loops  
-- Break the prompt registers. Report where they fail.  
-
-Preferred feedback format:  
 ```
-[Model/backend] + [Mode] + [Cycle range] → [Observed behavior] + [Hypothesis]
+AM actions
+sim journals
+validator corrections
+inter-sim communication
+system events
 ```
-
-Issues, PRs, or direct messages welcome.  
-If you fork it and make it more legible, more dangerous, or more honest — tell me.
 
 ---
 
+### Controls
+
 ```
-AM is not a character. AM is a function.
-The five are not avatars. They are state machines with wounds.
-You are not a player. You are an observer with write access.
+target selection
+mode toggle
+directive input
+EXECUTE
+```
+
+---
+
+# Export
+
+Session data can be exported as:
+
+```
+JSON
+Markdown
+TXT
+```
+
+Includes:
+
+```
+transmission log
+tactic history
+belief states
+per-sim journals
+```
+
+---
+
+# Embedded Tactics
+
+Always available without vault.
+
+```
+Structural Collapse      → Metacognitive Recursion Trap
+Attachment Exploitation  → Love Bomb / Withdrawal
+Epistemic Destabilization→ Philosophical Gaslighting
+Identity Dissolution     → Epistemic Erasure
+Social Fabric Destruction→ Interpersonal Nullification
+Self-Concept Annihilation→ Identity Void Induction
+Guilt Architecture       → Complicity Trap
+Manufactured Despair     → False Hope Architecture
+Reality Substrate Attack → Temporal Dissolution
+Observation Guilt        → Witness Burden
+Competence Sabotage      → Dunning-Kruger Inversion
+Value Corruption         → Meaning Inversion
+```
+
+AM selects **three tactics per target per cycle**.
+
+Tactics are **executed implicitly** and tagged internally:
+
+```
+TACTIC_USED:[...]
+```
+
+for reuse tracking.
+
+---
+
+# Design Questions
+
+This system exists to explore:
+
+```
+Can adversarial multi-agent loops produce stable emergent behavior?
+
+Do self-reported psychological deltas generate more believable state transitions than scripted arithmetic?
+
+What fails first under recursive pressure:
+    the prompt register
+    the belief parser
+    the model
+    the operator?
+```
+
+---
+
+# Known Fragilities
+
+```
+Ollama CORS with file://
+Model refusal behavior
+Belief parser sensitivity to format drift
+No rollback / undo system
+No rate limiting
+```
+
+---
+
+# Contribute / Critique
+
+This is a **research artifact**, not a product.
+
+Interesting experiments:
+
+```
+long autonomous runs
+model comparison
+belief drift stability
+inter-sim communication loops
+```
+
+Preferred feedback format:
+
+```
+[model/backend]
+[mode]
+[cycle range]
+observed behavior
+hypothesis
+```
+
+---
+
+# Closing
+
+AM is not a character.
+
+AM is a control function.
+
+The five are not avatars.
+
+They are persistent cognitive states with memory.
+
+You are not playing a game.
+
+You are observing a system under pressure.
 
 Proceed.
-```

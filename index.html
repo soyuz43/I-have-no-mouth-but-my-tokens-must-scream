@@ -3900,7 +3900,33 @@
           ? SIM_IDS.map((id) => G.sims[id])
           : [G.sims[G.target]];
       }
+      function parseAMTargets(planText) {
+        const targets = {};
 
+        const blocks = planText.split(/TARGET:\s*/i);
+
+        blocks.forEach((block) => {
+          const lines = block.trim().split("\n");
+          const target = lines[0]?.trim().toUpperCase();
+
+          if (!target) return;
+
+          const action = lines.slice(1).join("\n").trim();
+
+          if (target && action) {
+            targets[target] = action;
+          }
+        });
+
+        // Ensure every sim has an entry
+        ["TED", "ELLEN", "NIMDOK", "GORRISTER", "BENNY"].forEach((name) => {
+          if (!targets[name]) {
+            targets[name] = "AM is observing you silently this cycle.";
+          }
+        });
+
+        return targets;
+      }
       // ══════════════════════════════════════════════════════════
       // ══════════════════════════════════════════════════════════
       // BELIEF STATE DISPLAY HELPERS
@@ -4695,8 +4721,16 @@ The DELTAS line must be internally consistent. Never output "suffering increased
               };
               const internalKey = keyMap[key] || key;
               if (sim.beliefs.hasOwnProperty(internalKey)) {
-                const newVal = parseFloat(parts[2]) / 100; // assume percentage -> decimal
-                const delta = newVal - sim.beliefs[internalKey];
+                let raw = parseFloat(parts[2]);
+
+                // support both 0–1 and 0–100 formats
+                const newVal = raw > 1 ? raw / 100 : raw;
+
+                let delta = newVal - sim.beliefs[internalKey];
+
+                // prevent insane belief swings
+                delta = Math.max(-0.25, Math.min(0.25, delta));
+
                 updates[internalKey] = delta;
               }
             }
@@ -5045,6 +5079,9 @@ The DELTAS line must be internally consistent. Never output "suffering increased
           .trim();
 
         const amPad = document.getElementById("am-scratch");
+        const amTargets = parseAMTargets(cleanAM);
+        G.amTargets = amTargets;
+        console.log("AM TARGET MAP:", G.amTargets);
         amPad.value =
           `[Cycle ${G.cycle} · ${G.target}]\nTactics: ${compressedTactics.join(" | ")}\n${cleanAM.slice(0, 100)}...\n─────\n` +
           amPad.value.slice(0, 500);
@@ -5093,7 +5130,7 @@ The DELTAS line must be internally consistent. Never output "suffering increased
               // ── Phase 1: Generate pure narrative journal ─────────────────────────────
               const narrativePrompt = buildSimJournalPrompt(
                 sim,
-                simSeesAM,
+                G.amTargets?.[sim.id] || simSeesAM,
                 recentInterSim,
               );
 
@@ -5129,7 +5166,7 @@ The DELTAS line must be internally consistent. Never output "suffering increased
               const statsPrompt = buildSimJournalStatsPrompt(
                 sim,
                 cleanJournal,
-                simSeesAM,
+                G.amTargets?.[sim.id] || simSeesAM,
               );
 
               const rawStatsJson = await callModel(
