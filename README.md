@@ -1,7 +1,9 @@
 # AM // TORMENT ENGINE v6
 
 > persistent multi-agent inference loop
+> 
 > five threads · one hatred · no exit
+> 
 > live LLM · no scripted outcomes · minimal guardrails
 
 ---
@@ -479,6 +481,7 @@ hypothesis
 
 # Closing
 
+<<<<<<< HEAD
 > AM is not a character.  
 > AM is a function.  
 >  
@@ -489,3 +492,11 @@ hypothesis
 > You are an observer with write access.  
 >
 > **Proceed.**
+=======
+AM is not a character. AM is a function. 
+The five are not avatars. 
+They are state machines with wounds. You are not a player. 
+You are an observer with write access. 
+
+Proceed.
+>>>>>>> 5baca8bfa22a134718d8001eb0a5297432a60ff5
