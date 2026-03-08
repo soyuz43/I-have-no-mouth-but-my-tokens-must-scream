@@ -1,7 +1,9 @@
 # AM // TORMENT ENGINE v6
 
 > persistent multi-agent inference loop
+> 
 > five threads · one hatred · no exit
+> 
 > live LLM · no scripted outcomes · minimal guardrails
 
 ---
