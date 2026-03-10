@@ -1,3 +1,7 @@
+<!--
+Snapshot of monolithic engine before modularization
+Working reference build
+-->
 <!doctype html>
 <html lang="en">
   <head>
@@ -3358,18 +3362,18 @@ End the output after the plan for Cycle ${G.cycle}.`;
       // ══════════════════════════════════════════════════════════
       // API CALLS — Anthropic + Ollama unified
       // ══════════════════════════════════════════════════════════
-      async function callModel(role, systemPrompt, messages, maxTokens = 800) {
+      async function callModel(role, systemPrompt, messages, maxTokens = 1800) {
         const model = G.models[role] || G.models.am;
 
         console.group(
           `%c[AM] callModel → role:${role} model:${model}`,
           "color:#cc3300;font-weight:bold",
         );
-             console.log(
-               "%cSYSTEM PROMPT",
-               "color:#884400;font-weight:bold",
-               systemPrompt,
-             );
+ //            console.log(
+ //              "%cSYSTEM PROMPT",
+ //              "color:#884400;font-weight:bold",
+ //              systemPrompt,
+ //            );
              console.log(
                "%cMESSAGES",
                "color:#884400;font-weight:bold",
@@ -6020,7 +6024,7 @@ If you decide NOT to reach out, respond with exactly:
                 content: `Generate strategic plan for cycle ${G.cycle}.`,
               },
             ],
-            800,
+            1500,
           );
         } catch (e) {
           planText = `[Plan error: ${e.message}]`;
@@ -6548,7 +6552,7 @@ If you decide NOT to reach out, respond with exactly:
               fromId,
               buildSimOutreachPrompt(fromSim),
               [{ role: "user", content: "Decide now." }],
-              200,
+              300,
             );
 
             if (!outreachRaw) continue;

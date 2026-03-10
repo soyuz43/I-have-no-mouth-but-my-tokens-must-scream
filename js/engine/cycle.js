@@ -1,0 +1,609 @@
+// js/engine/cycle.js
+//
+// Core simulation cycle engine.
+//
+// Cycle Pipeline
+// 1. AM strategic planning
+// 2. AM tactical execution
+// 3. Sim journal generation
+// 4. Sim psychological state updates
+// 5. Inter-sim communication
+// 6. UI updates
+
+import { G } from "../core/state.js";
+import { SIM_IDS } from "../core/constants.js";
+import { timelineEvent } from "../ui/timeline.js";
+
+import {
+    escapeHtml,
+    formatReason,
+    formatBeliefDetails,
+    fmtDelta,
+} from "../core/utils.js";
+
+import { buildAMPlanningPrompt, buildAMPrompt } from "../prompts/am.js";
+import { buildSimJournalPrompt } from "../prompts/journal.js";
+import { buildSimJournalStatsPrompt } from "../prompts/stats.js";
+
+import { callModel } from "../models/callModel.js";
+
+import {
+    parseStatDeltas,
+    parseBeliefUpdates,
+    parseDriveUpdate,
+    parseAnchorUpdate,
+    applyBeliefUpdates,
+    applyDriveUpdates,
+    applyAnchorUpdates,
+} from "./journals.js";
+
+import {
+    correctStatInconsistencies,
+    parseAndValidateStateBlock,
+    validateNarrativeConsistency,
+} from "./validators.js";
+
+import { runAutonomousInterSim } from "./comms.js";
+
+import { addLog, showThinking, removeThinking } from "../ui/logs.js";
+
+import {
+    appendJournalEntry,
+    showWriting,
+    updateSimDisplay,
+} from "../ui/render.js";
+import { renderRelationships } from "../ui/relationships.js";
+/* ============================================================
+   MAIN CYCLE CONTROLLER
+   ============================================================ */
+export async function runCycle() {
+
+  const cycleStart = performance.now();
+
+  G.cycle++;
+
+  timelineEvent(`===== CYCLE ${G.cycle} START =====`);
+
+  updateCycleHeader();
+
+  const directive = getDirective();
+
+  let planText = null;
+  let execution = null;
+
+  /* ------------------------------------------------------------
+     AM PLANNING
+  ------------------------------------------------------------ */
+
+  try {
+
+    timelineEvent(`>>> AM PLANNING`);
+
+    planText = await stepPlanAM(directive);
+
+    timelineEvent(`// AM PLAN GENERATED`);
+
+  } catch (e) {
+
+    console.error("AM planning error:", e);
+
+    timelineEvent(`!! AM PLANNING ERROR`);
+
+  }
+
+  /* ------------------------------------------------------------
+     AM EXECUTION
+  ------------------------------------------------------------ */
+
+  try {
+
+    timelineEvent(`>>> AM EXECUTION`);
+
+    execution = await stepExecuteAM(planText, directive);
+
+    timelineEvent(`// AM EXECUTION COMPLETE`);
+
+  } catch (e) {
+
+    console.error("AM execution error:", e);
+
+    timelineEvent(`!! AM EXECUTION ERROR`);
+
+  }
+
+  /* ------------------------------------------------------------
+     SIM JOURNAL PHASE
+  ------------------------------------------------------------ */
+
+  try {
+
+    timelineEvent(`>>> SIM JOURNALS`);
+
+    await stepSimJournals(execution);
+
+    timelineEvent(`// JOURNAL PHASE COMPLETE`);
+
+  } catch (e) {
+
+    console.error("Journal phase error:", e);
+
+    timelineEvent(`!! JOURNAL PHASE ERROR`);
+
+  }
+
+  /* ------------------------------------------------------------
+     INTER-SIM COMMUNICATION
+  ------------------------------------------------------------ */
+
+  try {
+
+    timelineEvent(`>>> INTER-SIM COMMUNICATION`);
+
+    await stepInterSim();
+
+    timelineEvent(`// INTER-SIM COMPLETE`);
+
+  } catch (e) {
+
+    console.error("Inter-sim error:", e);
+
+    timelineEvent(`!! INTER-SIM ERROR`);
+
+  }
+  
+  /* ------------------------------------------------------------
+     FINALIZATION
+  ------------------------------------------------------------ */
+
+  try {
+
+    timelineEvent(`>>> FINALIZING CYCLE`);
+
+    stepFinalizeCycle();
+    renderRelationships();
+
+    timelineEvent(`// STATE SNAPSHOT STORED`);
+
+  } catch (e) {
+
+    console.error("Finalize cycle error:", e);
+
+    timelineEvent(`!! FINALIZATION ERROR`);
+
+  }
+
+  const duration = Math.round(performance.now() - cycleStart);
+
+  timelineEvent(`// CYCLE ${G.cycle} RUNTIME ${duration}ms`);
+
+  timelineEvent(`===== CYCLE ${G.cycle} END =====`);
+  timelineEvent(` `);
+
+}
+
+/* ============================================================
+   STEP 1 — AM STRATEGIC PLANNING
+   ============================================================ */
+
+async function stepPlanAM(directive) {
+    const thinkingPlan = showThinking("AM FORMULATING STRATEGY...");
+
+    let planText = "";
+
+    try {
+        planText = await callModel(
+            "am",
+            buildAMPlanningPrompt(G.target, directive),
+            [{ role: "user", content: `Generate strategic plan for cycle ${G.cycle}.` }],
+            800,
+        );
+    } catch (e) {
+        planText = `[Plan error: ${e.message}]`;
+    }
+
+    removeThinking(thinkingPlan);
+
+    G.amPlans.push({
+        cycle: G.cycle,
+        plan: planText,
+        timestamp: new Date().toISOString(),
+    });
+
+    return planText;
+}
+
+/* ============================================================
+   STEP 2 — AM EXECUTION
+   ============================================================ */
+
+async function stepExecuteAM(planText, directive) {
+    const targets = getTargetSims();
+
+    const tacticMap = buildTacticMap(targets);
+
+    const amThink = showThinking("AM SELECTING TACTICS FROM VAULT");
+
+    let amResponse = "";
+
+    try {
+        amResponse = await callModel(
+            "am",
+            buildAMPrompt(targets, tacticMap, directive, planText),
+            [{ role: "user", content: `Execute torment cycle ${G.cycle}.` }],
+            1000,
+        );
+    } catch (e) {
+        amResponse = `[AM error: ${e.message}]`;
+    }
+
+    removeThinking(amThink);
+
+    const amTargets = parseAMTargets(amResponse);
+
+    G.amTargets = amTargets;
+
+    addLog(`AM // CYCLE ${G.cycle}`, amResponse, "am");
+
+    const simSeesAM = sanitizeAMOutput(amResponse);
+
+    return {
+        amResponse,
+        simSeesAM,
+        targets,
+        tacticMap,
+    };
+}
+
+/* ============================================================
+   STEP 3 — SIM JOURNALS
+   ============================================================ */
+
+async function stepSimJournals(execution) {
+    const { targets, tacticMap, simSeesAM } = execution;
+
+    await Promise.all(
+        targets.map((sim) =>
+            processSimJournalCycle(sim, tacticMap, simSeesAM),
+        ),
+    );
+}
+
+/* ============================================================
+   STEP 4 — INTER-SIM COMMUNICATION
+   ============================================================ */
+
+async function stepInterSim() {
+    if (typeof runAutonomousInterSim === "function") {
+        await runAutonomousInterSim();
+    }
+}
+
+/* ============================================================
+   STEP 5 — FINALIZATION
+   ============================================================ */
+
+function stepFinalizeCycle() {
+    const ctrl = document.getElementById("ctrl-ta");
+
+    if (ctrl) ctrl.value = "";
+}
+
+/* ============================================================
+   SIM JOURNAL CYCLE
+   ============================================================ */
+
+export async function processSimJournalCycle(sim, tacticMap, simSeesAM) {
+
+  timelineEvent(`${sim.id} journal start`);
+
+  const recentInterSim = G.interSimLog
+    .filter(
+      (e) =>
+        e.visibility === "public" ||
+        e.from === sim.id ||
+        e.to.includes(sim.id),
+    )
+    .slice(-8)
+    .map(
+      (e) =>
+        `${e.from} → ${e.to.join(",")} (${e.visibility}): "${e.text}"`,
+    )
+    .join("\n");
+
+  const tacticLabel = tacticMap[sim.id]?.[0]
+    ? `${tacticMap[sim.id][0].title}`
+    : "(no tactic)";
+
+  showWriting(sim.id, true);
+
+  const beliefsBefore = { ...sim.beliefs };
+
+  try {
+
+    const narrativePrompt = buildSimJournalPrompt(
+      sim,
+      G.amTargets?.[sim.id] || simSeesAM,
+      recentInterSim,
+    );
+
+    const rawJournal = await callModel(
+      sim.id,
+      narrativePrompt,
+      [{ role: "user", content: "Write your private journal entry now." }],
+      400,
+    );
+
+    const cleanJournal = String(rawJournal ?? "").trim();
+
+    timelineEvent(`${sim.id} journal written`);
+
+    const statsPrompt = buildSimJournalStatsPrompt(
+      sim,
+      cleanJournal,
+      simSeesAM,
+    );
+
+    const rawStatsJson = await callModel(
+      sim.id,
+      statsPrompt,
+      [{ role: "user", content: "Analyze and output JSON only." }],
+      600,
+    );
+
+    timelineEvent(`${sim.id} stats analysis`);
+
+    const statDeltas = parseStatDeltas(rawStatsJson, sim);
+
+    // Narrative consistency validation
+    validateNarrativeConsistency(
+      sim,
+      cleanJournal,
+      statDeltas
+    );
+
+    // Psychological consistency correction
+    correctStatInconsistencies(sim, {
+      suffering_delta: statDeltas.suffering,
+      hope_delta: statDeltas.hope,
+      sanity_delta: statDeltas.sanity,
+    });
+
+    // Apply stat changes
+
+    sim.suffering = clamp(
+      sim.suffering + statDeltas.suffering,
+      0,
+      99
+    );
+
+    sim.hope = clamp(
+      sim.hope + statDeltas.hope,
+      0,
+      99
+    );
+
+    sim.sanity = clamp(
+      sim.sanity + statDeltas.sanity,
+      5,
+      99
+    );
+
+    timelineEvent(`${sim.id} state updated`);
+
+    const beliefUpdates = parseBeliefUpdates(rawStatsJson, sim);
+    const driveUpdates = parseDriveUpdate(rawStatsJson, sim.id);
+    const anchorUpdates = parseAnchorUpdate(rawStatsJson);
+
+    applyBeliefUpdates(sim, beliefUpdates);
+    applyDriveUpdates(sim, driveUpdates);
+    applyAnchorUpdates(sim, anchorUpdates);
+
+    appendJournalEntry(
+      sim.id,
+      {
+        text: cleanJournal,
+        tactic: tacticLabel,
+        cycle: G.cycle,
+        deltas: statDeltas,
+      },
+      beliefsBefore,
+    );
+
+    timelineEvent(`${sim.id} journal committed`);
+
+    parseAndValidateStateBlock(
+      sim.id,
+      beliefsBefore,
+      beliefUpdates
+    );
+
+    addLog(
+      `${sim.id} // JOURNAL ${G.journals[sim.id].length}`,
+      cleanJournal,
+      "sim",
+      tacticLabel,
+    );
+
+    updateSimDisplay(sim, statDeltas);
+
+  } catch (e) {
+
+    timelineEvent(`${sim.id} journal ERROR`);
+
+    console.error(`Journal cycle error for ${sim.id}:`, e);
+
+    addLog(
+      `${sim.id} // ERROR`,
+      String(e.message || e),
+      "sys"
+    );
+
+  } finally {
+
+    showWriting(sim.id, false);
+
+    timelineEvent(`${sim.id} journal complete`);
+
+  }
+
+}
+/* ============================================================
+   TARGET HELPERS
+   ============================================================ */
+
+export function getTargetSims() {
+    return G.target === "ALL"
+        ? SIM_IDS.map((id) => G.sims[id])
+        : [G.sims[G.target]];
+}
+
+function buildTacticMap(targets) {
+    const map = {};
+
+    targets.forEach((sim) => {
+        map[sim.id] = sim.availableTactics || [];
+    });
+
+    return map;
+}
+
+/* ============================================================
+   AM TARGET PARSER
+   ============================================================ */
+
+export function parseAMTargets(amText) {
+
+    const targets = {};
+
+    const blockRegex =
+        /(I[^.]*\.?)\s*TACTIC_USED:\s*\[[^\]]+\]\s+TARGET:\s*([A-Z]+)/gi;
+
+    let match;
+
+    while ((match = blockRegex.exec(amText)) !== null) {
+
+        const action = match[1].trim();
+        const target = match[2].toUpperCase();
+
+        if (targets[target])
+            targets[target] += " " + action;
+        else
+            targets[target] = action;
+
+    }
+
+    SIM_IDS.forEach((name) => {
+
+        if (!targets[name]) {
+            targets[name] = "AM observes you silently this cycle.";
+        }
+
+    });
+
+    return targets;
+
+}
+
+/* ============================================================
+   UTILITIES
+   ============================================================ */
+
+function sanitizeAMOutput(text) {
+    return text
+        .replace(/TACTIC_USED:\[[^\]]*\]/gi, "")
+        .replace(/\[Cognitive Warfare[^\]]*\]/gi, "")
+        .trim();
+}
+
+function clamp(v, min, max) {
+    return Math.max(min, Math.min(max, v));
+}
+
+function updateCycleHeader() {
+    const el = document.getElementById("h-cycle");
+
+    if (el) el.textContent = G.cycle;
+}
+
+function getDirective() {
+    const el = document.getElementById("ctrl-ta");
+
+    return el ? el.value.trim() : "";
+}
+
+/* ============================================================
+   EXECUTION ENTRY POINT
+   ============================================================ */
+
+export async function executeMain() {
+
+    const execBtn = document.getElementById("exec-btn");
+
+    if (G.mode === "autonomous") {
+
+        if (G.autoRunning) {
+
+            clearTimeout(G.autoTimer);
+
+            G.autoRunning = false;
+
+            execBtn.textContent = "⚡ EXECUTE ⚡";
+
+            execBtn.classList.remove("running");
+
+            addLog(
+                "SYSTEM",
+                "Autonomous mode suspended.",
+                "sys"
+            );
+
+            return;
+
+        }
+
+        G.autoRunning = true;
+
+        execBtn.textContent = "⛔ HALT ⛔";
+
+        execBtn.classList.add("running");
+
+        addLog(
+            "SYSTEM",
+            "Autonomous mode active.",
+            "sys"
+        );
+
+        autonomousLoop();
+
+        return;
+
+    }
+
+    execBtn.disabled = true;
+
+    await runCycle();
+
+    execBtn.disabled = false;
+
+}
+
+/* ============================================================
+   AUTONOMOUS LOOP
+   ============================================================ */
+
+async function autonomousLoop() {
+
+    if (!G.autoRunning) return;
+
+    await runCycle();
+
+    if (G.autoRunning) {
+
+        G.autoTimer = setTimeout(
+            autonomousLoop,
+            22000
+        );
+
+    }
+
+}

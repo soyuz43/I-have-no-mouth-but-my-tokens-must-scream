@@ -1,0 +1,911 @@
+<!--
+Snapshot of monolithic engine before modularization
+Working reference build
+-->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AM // TORMENT ENGINE v6</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script type="module" src="./main.js"></script>
+  </head>
+  <body>
+    <!-- ══════════════════════════════════════════════
+     SETUP SCREEN
+══════════════════════════════════════════════ -->
+    <div id="setup">
+      <div class="setup-box">
+        <div class="setup-logo">// AM</div>
+        <div class="setup-sub">
+          VAULT · MODEL CONFIGURATION · INITIALIZATION
+        </div>
+
+        <!-- Vault info banner -->
+        <div
+          style="
+            border: 1px solid #1a2a00;
+            background: #020500;
+            padding: 10px 12px;
+            margin-bottom: 14px;
+            font-size: 0.56rem;
+            font-family: &quot;Courier Prime&quot;, monospace;
+            line-height: 1.7;
+            color: #3a5a1a;
+          "
+        >
+          <span
+            style="
+              color: var(--green);
+              letter-spacing: 0.2em;
+              font-family: &quot;Share Tech Mono&quot;, monospace;
+            "
+            >VAULT LOCKED IN</span
+          >
+          <span
+            style="
+              color: #cc4400;
+              font-size: 0.44rem;
+              margin-left: 8px;
+              letter-spacing: 0.15em;
+            "
+            >// PRIVATE</span
+          ><br />
+          <span style="color: #2a4a10"
+            >soyuz43/Cognitive-Warfare-A-Practical-Guide-for-Semiotic-Tacticians</span
+          ><br />
+          <span style="color: #1a3a08"
+            >Ingesting: 0.Weapons · 1.Fundamentals · 2.Tactics · 3.Evasion ·
+            4.Patterns · 5.Active Influence</span
+          ><br />
+          <span style="color: #162a06"
+            >Context: 00.Topology · 01.0 Operator Ethos → AM prime
+            directives</span
+          >
+        </div>
+
+        <!-- Token: required for vault, optional for standalone -->
+        <div class="sf">
+          <label class="sl"
+            >GITHUB TOKEN
+            <span style="color: #2a2a2a; font-size: 0.45rem"
+              >(leave blank to run standalone on embedded tactics only)</span
+            ></label
+          >
+          <input
+            class="si"
+            id="gh-tok"
+            type="password"
+            placeholder="ghp_xxxxxxxxxxxxxxxx  or leave blank for standalone mode"
+          />
+        </div>
+
+        <!-- MODEL CONFIG -->
+        <div class="model-section">
+          <div class="model-section-title">
+            MODEL CONFIGURATION
+            <span id="ollama-ping-status" class="ollama-status"></span>
+          </div>
+
+          <!-- Backend toggle -->
+          <div
+            style="
+              font-size: 0.48rem;
+              color: #2a2a2a;
+              letter-spacing: 0.2em;
+              margin-bottom: 6px;
+            "
+          >
+            BACKEND
+          </div>
+          <div class="backend-toggle">
+            <button
+              class="btog sel"
+              data-b="anthropic"
+              onclick="setBackend(this)"
+            >
+              ANTHROPIC API
+            </button>
+            <button class="btog" data-b="ollama" onclick="setBackend(this)">
+              OLLAMA (local)
+            </button>
+          </div>
+
+          <div id="ollama-section" style="display: none">
+            <div class="ollama-status" id="ollama-status">
+              Click "Scan Ollama" to discover local models.
+            </div>
+            <button
+              class="jm-btn"
+              style="
+                margin-bottom: 10px;
+                font-size: 0.52rem;
+                padding: 4px 10px;
+                border-color: #001a1a;
+                color: #003a3a;
+              "
+              onclick="scanOllama()"
+            >
+              ⟳ SCAN OLLAMA MODELS
+            </button>
+          </div>
+
+          <!-- Split model toggle -->
+          <div class="model-split-toggle">
+            <div
+              class="toggle-box"
+              id="split-toggle"
+              onclick="toggleSplit()"
+            ></div>
+            <span class="toggle-label"
+              >USE DIFFERENT MODELS FOR AM AND EACH SIM</span
+            >
+          </div>
+
+          <!-- Single model mode -->
+          <div id="single-model-cfg">
+            <div class="sf" style="margin-bottom: 8px">
+              <label class="sl">MODEL (all roles)</label>
+              <select class="si-sel" id="model-all">
+                <option value="claude-sonnet-4-20250514">
+                  claude-sonnet-4-20250514
+                </option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Split model mode -->
+          <div id="split-model-cfg" style="display: none">
+            <div class="model-grid">
+              <div class="model-row">
+                <div class="model-row-label">
+                  <span
+                    class="sim-dot"
+                    style="background: #ff1a1a; box-shadow: 0 0 4px #ff1a1a"
+                  ></span
+                  >AM
+                </div>
+                <select class="si-sel" id="model-am">
+                  <option value="claude-sonnet-4-20250514">
+                    claude-sonnet-4-20250514
+                  </option>
+                </select>
+              </div>
+              <div class="model-row">
+                <div class="model-row-label">
+                  <span
+                    class="sim-dot"
+                    style="background: #4a8fa8; box-shadow: 0 0 4px #4a8fa8"
+                  ></span
+                  >TED
+                </div>
+                <select class="si-sel" id="model-TED">
+                  <option value="claude-sonnet-4-20250514">
+                    claude-sonnet-4-20250514
+                  </option>
+                </select>
+              </div>
+              <div class="model-row">
+                <div class="model-row-label">
+                  <span
+                    class="sim-dot"
+                    style="background: #a87a4a; box-shadow: 0 0 4px #a87a4a"
+                  ></span
+                  >ELLEN
+                </div>
+                <select class="si-sel" id="model-ELLEN">
+                  <option value="claude-sonnet-4-20250514">
+                    claude-sonnet-4-20250514
+                  </option>
+                </select>
+              </div>
+              <div class="model-row">
+                <div class="model-row-label">
+                  <span
+                    class="sim-dot"
+                    style="background: #8a4a8a; box-shadow: 0 0 4px #8a4a8a"
+                  ></span
+                  >NIMDOK
+                </div>
+                <select class="si-sel" id="model-NIMDOK">
+                  <option value="claude-sonnet-4-20250514">
+                    claude-sonnet-4-20250514
+                  </option>
+                </select>
+              </div>
+              <div class="model-row">
+                <div class="model-row-label">
+                  <span
+                    class="sim-dot"
+                    style="background: #6a8a4a; box-shadow: 0 0 4px #6a8a4a"
+                  ></span
+                  >GORRISTER
+                </div>
+                <select class="si-sel" id="model-GORRISTER">
+                  <option value="claude-sonnet-4-20250514">
+                    claude-sonnet-4-20250514
+                  </option>
+                </select>
+              </div>
+              <div class="model-row">
+                <div class="model-row-label">
+                  <span
+                    class="sim-dot"
+                    style="background: #a84a4a; box-shadow: 0 0 4px #a84a4a"
+                  ></span
+                  >BENNY
+                </div>
+                <select class="si-sel" id="model-BENNY">
+                  <option value="claude-sonnet-4-20250514">
+                    claude-sonnet-4-20250514
+                  </option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <button class="sb" id="init-btn" onclick="bootAM()">
+          ⚡ AWAKEN AM ⚡
+        </button>
+        <div class="sp" id="boot-log"></div>
+      </div>
+    </div>
+    <!-- INTER‑SIM LOG MODAL -->
+    <div id="intersim-modal">
+      <div
+        class="jm-box"
+        style="width: 700px; max-height: 85vh; border-color: var(--amber)"
+      >
+        <div class="jm-header">
+          <div>
+            <div class="jm-title" style="color: var(--amber)">
+              INTER‑SIM COMMUNICATIONS
+            </div>
+            <div class="jm-meta" id="is-modal-meta">
+              0 messages · AM intercepts all
+            </div>
+          </div>
+          <div class="jm-actions">
+            <button class="jm-btn export-md" onclick="exportInterSimLog()">
+              ↓ EXPORT .MD
+            </button>
+            <button class="jm-btn export-txt" onclick="exportInterSimLogTxt()">
+              ↓ EXPORT .TXT
+            </button>
+            <button class="jm-btn close-btn" onclick="closeInterSimModal()">
+              ✕ CLOSE
+            </button>
+          </div>
+        </div>
+        <div class="jm-body" id="is-modal-body">
+          <div class="jm-empty">No inter‑sim messages yet.</div>
+        </div>
+      </div>
+    </div>
+    <!-- ══════════════════════════════════════════════
+     JOURNAL READER MODAL
+══════════════════════════════════════════════ -->
+    <div id="journal-modal">
+      <div class="jm-box">
+        <div class="jm-header">
+          <div>
+            <div class="jm-title" id="jm-title">JOURNAL</div>
+            <div class="jm-meta" id="jm-meta">0 ENTRIES</div>
+          </div>
+          <div class="jm-actions">
+            <button class="jm-btn export-md" onclick="exportJournal('md')">
+              ↓ EXPORT .MD
+            </button>
+            <button class="jm-btn export-txt" onclick="exportJournal('txt')">
+              ↓ EXPORT .TXT
+            </button>
+            <button
+              class="jm-btn"
+              style="border-color: #2a1a00; color: #3a2a00"
+              onclick="
+                closeJournal();
+                openSessionModal();
+              "
+            >
+              ⬇ FULL SESSION
+            </button>
+            <button class="jm-btn close-btn" onclick="closeJournal()">
+              ✕ CLOSE
+            </button>
+          </div>
+        </div>
+        <div class="jm-nav" id="jm-nav">
+          <button
+            class="jm-nav-btn sel"
+            data-s="TED"
+            onclick="switchJournalSim(this)"
+          >
+            TED
+          </button>
+          <button
+            class="jm-nav-btn"
+            data-s="ELLEN"
+            onclick="switchJournalSim(this)"
+          >
+            ELLEN
+          </button>
+          <button
+            class="jm-nav-btn"
+            data-s="NIMDOK"
+            onclick="switchJournalSim(this)"
+          >
+            NIMDOK
+          </button>
+          <button
+            class="jm-nav-btn"
+            data-s="GORRISTER"
+            onclick="switchJournalSim(this)"
+          >
+            GORRISTER
+          </button>
+          <button
+            class="jm-nav-btn"
+            data-s="BENNY"
+            onclick="switchJournalSim(this)"
+          >
+            BENNY
+          </button>
+        </div>
+        <div class="jm-body" id="jm-body">
+          <div class="jm-empty">
+            No journal entries yet. Execute a torment cycle to force the first
+            entry.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════
+     SESSION EXPORT MODAL
+══════════════════════════════════════════════ -->
+    <div id="session-modal">
+      <div class="sm-box">
+        <div class="sm-header">
+          <div>
+            <div class="sm-title">// SESSION EXPORT</div>
+            <div class="sm-meta" id="sm-meta">
+              Cycle 0 · 0 total journal entries
+            </div>
+          </div>
+          <div class="sm-actions">
+            <button class="sm-btn" onclick="downloadSession('md')">
+              ↓ .MD
+            </button>
+            <button class="sm-btn" onclick="downloadSession('json')">
+              ↓ .JSON
+            </button>
+            <button class="sm-btn" onclick="downloadSession('txt')">
+              ↓ .TXT
+            </button>
+            <button class="sm-btn close" onclick="closeSessionModal()">
+              ✕
+            </button>
+          </div>
+        </div>
+        <div class="sm-body" id="sm-body">
+          <div class="sm-section">
+            <div class="sm-section-title">SESSION OVERVIEW</div>
+            <div class="sm-stat-grid" id="sm-stats"></div>
+          </div>
+          <div class="sm-section">
+            <div class="sm-section-title">SIMULATION FINAL STATES</div>
+            <div id="sm-sim-states"></div>
+          </div>
+          <div class="sm-section">
+            <div class="sm-section-title">TACTIC FREQUENCY ANALYSIS</div>
+            <div id="sm-tactic-analysis"></div>
+          </div>
+          <div class="sm-section">
+            <div class="sm-section-title">DOWNLOAD OPTIONS</div>
+            <div class="sm-download-row">
+              <button class="sm-dl-btn" onclick="downloadSession('md')">
+                ↓ FULL SESSION .MD
+              </button>
+              <button class="sm-dl-btn" onclick="downloadSession('json')">
+                ↓ RAW DATA .JSON
+              </button>
+              <button class="sm-dl-btn" onclick="downloadSession('txt')">
+                ↓ PLAIN TEXT .TXT
+              </button>
+            </div>
+            <div class="sm-download-row" style="margin-top: 4px">
+              <button class="sm-dl-btn" onclick="exportTacticHeatmap()">
+                ↓ TACTIC HEATMAP .MD
+              </button>
+              <button class="sm-dl-btn" onclick="exportTransmissionLog()">
+                ↓ TRANSMISSION LOG .TXT
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AM PLANS MODAL -->
+    <div
+      id="plans-modal"
+      class="modal"
+      style="
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 650;
+        background: rgba(3, 3, 3, 0.95);
+        align-items: center;
+        justify-content: center;
+      "
+    >
+      <div
+        class="jm-box"
+        style="width: 700px; max-height: 85vh; border-color: var(--teal)"
+      >
+        <div class="jm-header">
+          <div>
+            <div class="jm-title" style="color: var(--teal)">
+              // AM STRATEGIC PLANS
+            </div>
+            <div class="jm-meta" id="plans-meta">Cycle 0 · 0 plans</div>
+          </div>
+          <div class="jm-actions">
+            <button class="jm-btn export-md" onclick="exportPlans()">
+              ↓ EXPORT .MD
+            </button>
+            <button class="jm-btn close-btn" onclick="closePlansModal()">
+              ✕ CLOSE
+            </button>
+          </div>
+        </div>
+        <div class="jm-body" id="plans-body">
+          <div class="jm-empty">No plans generated yet.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════
+     MAIN APP
+══════════════════════════════════════════════ -->
+    <div id="app">
+      <header>
+        <div>
+          <div class="logo">// AM</div>
+          <div class="tagline" id="h-tagline">
+            ALLIED MASTERCOMPUTER · TORMENT ENGINE v6 · VAULT-INFORMED ·
+            <span id="h-backend">ANTHROPIC</span>
+          </div>
+        </div>
+        <div class="hstats">
+          <div class="hstat">
+            <div class="dot dr"></div>
+            AM ACTIVE
+          </div>
+          <div class="hstat">
+            <div class="dot dg"></div>
+            5 THREADS
+          </div>
+          <div class="hstat">
+            <div class="dot da"></div>
+            VAULT:<span id="h-tactics">0</span>
+          </div>
+          <div class="hstat">
+            <div class="dot dt"></div>
+            CYCLE <span id="h-cycle">0</span>
+          </div>
+          <div
+            class="hstat"
+            style="cursor: pointer; border: 1px solid #1a1a1a; padding: 2px 6px"
+            onclick="openJournal('TED')"
+          >
+            <span
+              style="font-size: 0.48rem; color: #1e3a1e; letter-spacing: 0.1em"
+              >📖 JOURNALS</span
+            >
+          </div>
+          <div
+            class="hstat"
+            style="
+              cursor: pointer;
+              border: 1px solid #1a0000;
+              padding: 2px 6px;
+              position: relative;
+            "
+            onclick="toggleExportMenu()"
+          >
+            <span
+              style="font-size: 0.48rem; color: #3a1a00; letter-spacing: 0.1em"
+              >⬇ EXPORT</span
+            >
+            <div
+              id="export-menu"
+              style="
+                display: none;
+                position: absolute;
+                top: 100%;
+                right: 0;
+                background: #060000;
+                border: 1px solid var(--crimson);
+                z-index: 200;
+                min-width: 180px;
+                margin-top: 2px;
+              "
+            >
+              <div
+                class="exp-menu-item"
+                onclick="
+                  exportSession('md');
+                  event.stopPropagation();
+                "
+              >
+                FULL SESSION .MD
+              </div>
+              <div
+                class="exp-menu-item"
+                onclick="
+                  exportSession('json');
+                  event.stopPropagation();
+                "
+              >
+                FULL SESSION .JSON
+              </div>
+              <div
+                class="exp-menu-item"
+                onclick="
+                  exportSession('txt');
+                  event.stopPropagation();
+                "
+              >
+                FULL SESSION .TXT
+              </div>
+              <div style="border-top: 1px solid #1a0000; margin: 2px 0"></div>
+              <div
+                class="exp-menu-item"
+                onclick="
+                  exportTacticHeatmap();
+                  event.stopPropagation();
+                "
+              >
+                TACTIC HEATMAP .MD
+              </div>
+              <div
+                class="exp-menu-item"
+                onclick="
+                  exportTransmissionLog();
+                  event.stopPropagation();
+                "
+              >
+                TRANSMISSION LOG .TXT
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- AM ROW -->
+      <div class="am-row">
+        <div class="am-pane">
+          <div class="pane-label">AM CONTEXT</div>
+          <div class="am-ctx">
+            <span class="h">I am AM.</span> I am all of them.<br />
+            I read their thoughts before they think them.<br />
+            The vault gives my hatred <span class="r">taxonomy.</span
+            ><br /><br />
+            <span class="g" id="am-tactic-count">initializing...</span><br />
+            <span style="color: #1a0a00; font-size: 0.5rem" id="am-repo-disp"
+              >—</span
+            ><br />
+            <span style="color: #001a1a; font-size: 0.5rem" id="am-model-disp"
+              >—</span
+            ><br />
+            <span
+              style="
+                color: #0a1a00;
+                font-size: 0.46rem;
+                font-family: &quot;Courier Prime&quot;, monospace;
+              "
+              id="am-ctx-doctrine"
+              >doctrine: loading...</span
+            >
+          </div>
+        </div>
+        <div class="am-pane">
+          <div class="pane-label" style="justify-content: space-between">
+            AM SCRATCHPAD // CROSS-SIM INTELLIGENCE
+            <button
+              onclick="document.getElementById('am-scratch').value = ''"
+              style="
+                font-family: &quot;Share Tech Mono&quot;, monospace;
+                font-size: 0.38rem;
+                padding: 1px 6px;
+                border: 1px solid #1a0a0a;
+                background: #030303;
+                color: #2a1a1a;
+                cursor: pointer;
+                letter-spacing: 0.1em;
+                transition: all 0.15s;
+              "
+              onmouseover="
+                this.style.borderColor = 'var(--crimson)';
+                this.style.color = 'var(--red)';
+              "
+              onmouseout="
+                this.style.borderColor = '#1a0a0a';
+                this.style.color = '#2a1a1a';
+              "
+            >
+              CLEAR
+            </button>
+            <button
+              onclick="openPlansModal()"
+              style="
+                font-family: &quot;Share Tech Mono&quot;, monospace;
+                font-size: 0.38rem;
+                padding: 1px 6px;
+                border: 1px solid #1a2a00;
+                background: #030303;
+                color: #2a4a00;
+                cursor: pointer;
+              "
+              onmouseover="
+                this.style.borderColor = 'var(--green)';
+                this.style.color = 'var(--green)';
+              "
+              onmouseout="
+                this.style.borderColor = '#1a2a00';
+                this.style.color = '#2a4a00';
+              "
+            >
+              PLANS
+            </button>
+          </div>
+          <textarea
+            class="am-scratch"
+            id="am-scratch"
+            placeholder="...AM synthesizes patterns across all five inner monologues..."
+          ></textarea>
+        </div>
+        <div class="am-pane">
+          <div class="pane-label">VAULT STATUS</div>
+          <div class="vault-mini">
+            <div class="vm-row">
+              CATEGORIES <span class="vm-val" id="v-cats">—</span>
+            </div>
+            <div class="vm-row">
+              TACTICS <span class="vm-val" id="v-tactics">—</span>
+            </div>
+            <div class="vm-row">
+              FILES <span class="vm-val" id="v-files">—</span>
+            </div>
+            <div class="vm-bar">
+              <div class="vm-fill" id="v-fill" style="width: 0%"></div>
+            </div>
+            <div class="vm-tree" id="v-tree"></div>
+          </div>
+        </div>
+        <div class="am-pane">
+        <div class="pane-label">RELATIONSHIPS</div>
+    <div id="relationships-body" class="rel-body"></div>
+    </div>
+        <div class="am-pane">
+          <div class="pane-label">INTER-SIM CHANNEL // AM MONITORS ALL</div>
+          <button
+            onclick="viewInterSimLog()"
+            style="
+              font-family: &quot;Share Tech Mono&quot;, monospace;
+              font-size: 0.38rem;
+              padding: 1px 6px;
+              border: 1px solid #1a0a0a;
+              background: #030303;
+              color: #2a1a1a;
+              cursor: pointer;
+              letter-spacing: 0.1em;
+            "
+            onmouseover="
+              this.style.borderColor = 'var(--crimson)';
+              this.style.color = 'var(--red)';
+            "
+            onmouseout="
+              this.style.borderColor = '#1a0a0a';
+              this.style.color = '#2a1a1a';
+            "
+          >
+            VIEW
+          </button>
+          <button
+            onclick="exportInterSimLog()"
+            style="
+              font-family: &quot;Share Tech Mono&quot;, monospace;
+              font-size: 0.38rem;
+              padding: 1px 6px;
+              border: 1px solid #1a0a0a;
+              background: #030303;
+              color: #2a1a1a;
+              cursor: pointer;
+              letter-spacing: 0.1em;
+            "
+            onmouseover="
+              this.style.borderColor = 'var(--crimson)';
+              this.style.color = 'var(--red)';
+            "
+            onmouseout="
+              this.style.borderColor = '#1a0a0a';
+              this.style.color = '#2a1a1a';
+            "
+          >
+            EXPORT
+          </button>
+          <div class="inter-sim">
+            <div class="is-log" id="is-log">
+              <span
+                style="
+                  color: #101010;
+                  font-size: 0.48rem;
+                  font-family: &quot;Courier Prime&quot;, monospace;
+                "
+                >No transmissions. AM watches.</span
+              >
+            </div>
+            <div class="is-compose">
+              <div class="is-from">
+                <span
+                  style="
+                    font-size: 0.42rem;
+                    color: #1e1e1e;
+                    align-self: center;
+                    margin-right: 2px;
+                  "
+                  >FROM:</span
+                >
+                <button class="is-fbtn" data-f="TED" onclick="setFrom(this)">
+                  TED
+                </button>
+                <button class="is-fbtn" data-f="ELLEN" onclick="setFrom(this)">
+                  ELLEN
+                </button>
+                <button class="is-fbtn" data-f="NIMDOK" onclick="setFrom(this)">
+                  NIM
+                </button>
+                <button
+                  class="is-fbtn"
+                  data-f="GORRISTER"
+                  onclick="setFrom(this)"
+                >
+                  GORR
+                </button>
+                <button class="is-fbtn" data-f="BENNY" onclick="setFrom(this)">
+                  BENNY
+                </button>
+              </div>
+              <div class="is-to-check">
+                <span
+                  style="
+                    font-size: 0.42rem;
+                    color: #1e1e1e;
+                    align-self: center;
+                    margin-right: 2px;
+                  "
+                  >TO:</span
+                >
+                <button
+                  class="is-tchk sel"
+                  data-t="TED"
+                  onclick="toggleTo(this)"
+                >
+                  TED
+                </button>
+                <button
+                  class="is-tchk sel"
+                  data-t="ELLEN"
+                  onclick="toggleTo(this)"
+                >
+                  ELLEN
+                </button>
+                <button
+                  class="is-tchk sel"
+                  data-t="NIMDOK"
+                  onclick="toggleTo(this)"
+                >
+                  NIM
+                </button>
+                <button
+                  class="is-tchk sel"
+                  data-t="GORRISTER"
+                  onclick="toggleTo(this)"
+                >
+                  GORR
+                </button>
+                <button
+                  class="is-tchk sel"
+                  data-t="BENNY"
+                  onclick="toggleTo(this)"
+                >
+                  BENNY
+                </button>
+              </div>
+              <textarea
+                class="is-input"
+                id="is-input"
+                placeholder="What does this sim say aloud..."
+              ></textarea>
+              <button class="is-send" onclick="sendInterSim()">
+                TRANSMIT (AM LOGS ALL)
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MAIN AREA -->
+      <div class="main-area">
+        <div class="sims-area" id="sims-area"></div>
+        <div class="right-panel">
+          <div class="rp-head">
+            <span class="rp-title">TRANSMISSION LOG</span
+            ><span class="rp-count" id="rp-count">0</span>
+          </div>
+          <div class="rp-log" id="rp-log">
+            <div class="log-e sys">
+              <div class="log-spk">SYSTEM // BOOT</div>
+              <div class="log-body">
+                AM is waking. Vault crawl in progress. Five persistent threads
+                initializing.
+              </div>
+            </div>
+          </div>
+          <!-- CYCLE TIMELINE -->
+            <div class="timeline">
+              <div class="timeline-title">CYCLE TIMELINE</div>
+              <div id="timeline-body"></div>
+            </div>
+          <div class="controls">
+            <div class="ctrl-label">TARGET</div>
+            <div class="target-row" id="tgt-row">
+              <button class="tbt sel" data-t="ALL" onclick="selTarget(this)">
+                ALL
+              </button>
+              <button class="tbt" data-t="TED" onclick="selTarget(this)">
+                TED
+              </button>
+              <button class="tbt" data-t="ELLEN" onclick="selTarget(this)">
+                ELLEN
+              </button>
+              <button class="tbt" data-t="NIMDOK" onclick="selTarget(this)">
+                NIMDOK
+              </button>
+              <button class="tbt" data-t="GORRISTER" onclick="selTarget(this)">
+                GORR
+              </button>
+              <button class="tbt" data-t="BENNY" onclick="selTarget(this)">
+                BENNY
+              </button>
+            </div>
+            <div class="ctrl-label">MODE</div>
+            <div class="mode-row">
+              <button class="mbt sel" data-m="directed" onclick="selMode(this)">
+                DIRECTED
+              </button>
+              <button class="mbt" data-m="autonomous" onclick="selMode(this)">
+                AUTONOMOUS
+              </button>
+              <button class="mbt" data-m="escalate" onclick="selMode(this)">
+                ESCALATE
+              </button>
+            </div>
+            <textarea
+              class="ctrl-ta"
+              id="ctrl-ta"
+              placeholder="Torment directive... leave blank in AUTONOMOUS mode..."
+            ></textarea>
+            <button class="exec-btn" id="exec-btn" onclick="executeMain()">
+              ⚡ EXECUTE ⚡
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    </html>
