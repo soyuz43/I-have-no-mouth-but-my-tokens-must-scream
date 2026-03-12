@@ -42,6 +42,7 @@ import {
     parseAndValidateStateBlock,
     validateNarrativeConsistency,
 } from "./validators.js";
+import { pickTactics } from "./tactics.js";
 
 import { runAutonomousInterSim } from "./comms.js";
 
@@ -461,7 +462,9 @@ function buildTacticMap(targets) {
     const map = {};
 
     targets.forEach((sim) => {
-        map[sim.id] = sim.availableTactics || [];
+        const selectedTactics = pickTactics(sim);
+        map[sim.id] = selectedTactics;
+        sim.availableTactics = selectedTactics;
     });
 
     return map;
