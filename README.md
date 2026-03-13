@@ -351,34 +351,64 @@ Display logs **strip these lines**.
 
 ### Consistency Validators
 
-The engine enforces several constraints:
+The engine enforces several constraints to keep model output coherent and prevent state drift caused by malformed responses.
 
 **Direction enforcement**
+
+Narrative statements must match the direction of reported stat deltas.
 
 ```
 "hope decreased" → hop delta must be negative
 "suffering increased" → suf delta must be positive
 ```
 
+If a mismatch appears, the validator adjusts the delta to match the narrative direction.
+
+---
+
 **Belief clamps**
+
+Belief values and belief updates are constrained to safe ranges.
 
 ```
 beliefs ∈ [0,1]
-delta range ∈ [-0.25, +0.25]
+belief delta range ∈ [-0.25, +0.25]
 ```
+
+Values outside these bounds are clamped before being applied to the simulation state.
+
+---
 
 **Ambiguity detection**
 
-Validator flags contradictions such as:
+The validator compares narrative language with reported stat changes and detects contradictions such as:
 
 ```
 hope decreased
 suf:-10
 ```
 
-and corrects them.
+When inconsistencies appear, the engine may **adjust, clamp, or override the reported values** to maintain a coherent psychological transition.
 
 ---
+
+**Narrative coherence checks**
+
+Large emotional changes must be supported by the journal narrative.
+
+Example:
+
+```
+journal: "I feel slightly uneasy"
+suf:+30
+```
+
+When the narrative does not justify the magnitude of the change, the validator reduces or corrects the delta before updating the agent state.
+
+---
+
+These safeguards prevent malformed model output from destabilizing the simulation while preserving the agents’ ability to evolve psychologically across cycles.
+
 
 ## Running the Simulation
 
