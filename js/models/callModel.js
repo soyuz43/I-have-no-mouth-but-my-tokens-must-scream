@@ -17,7 +17,7 @@ import { enqueueModelCall } from "./modelQueue.js";
 /* ============================================================
    PUBLIC ENTRY
    ============================================================ */
-export async function callModel(role, systemPrompt, messages, maxTokens = 800) {
+export async function callModel(role, systemPrompt, messages, maxTokens = 1500) {
 
   const model = resolveModel(role);
 

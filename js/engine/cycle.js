@@ -13,7 +13,8 @@
 import { G } from "../core/state.js";
 import { SIM_IDS } from "../core/constants.js";
 import { timelineEvent } from "../ui/timeline.js";
-
+import { runAssessment } from "./analysis/assessment.js";
+import { runTacticEvolution } from "./analysis/tacticEvolution.js";
 import {
   escapeHtml,
   formatReason,
