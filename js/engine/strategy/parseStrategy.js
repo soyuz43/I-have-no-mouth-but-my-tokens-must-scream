@@ -61,6 +61,12 @@ export function parseStrategyDeclarations(text) {
 
       const key = line.replace("RELATIONSHIP:", "").trim();
 
+if (!key.includes("→")) continue;
+
+const [a, b] = key.split("→");
+
+if (!SIM_IDS.includes(a) || !SIM_IDS.includes(b)) continue;
+
       currentRelationship = key;
       currentTarget = null;
       inGroup = false;
@@ -142,3 +148,18 @@ export function parseStrategyDeclarations(text) {
   }
 
 }
+  /* ------------------------------------------------------------
+     DEBUG: MISSING OBJECTIVES
+  ------------------------------------------------------------ */
+
+  for (const t of Object.values(G.amStrategy.targets)) {
+
+    if (!t.objective) {
+
+      console.warn(
+        "Strategy parser: Missing objective for target."
+      );
+
+    }
+
+  }
