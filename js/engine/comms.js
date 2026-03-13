@@ -209,110 +209,110 @@ function maybeOverhear(fromId, toId, message) {
 
   const r = Math.random() / modifier;
 
-/* ------------------------------------------------------------
-   OVERHEARING OUTCOMES
------------------------------------------------------------- */
-
-if (r < leak.full) {
-
-  // Listener overhears the entire message
-  addLog(
-    `OVERHEARD ${listener} // ${fromId}→${toId}`,
-    `"${message}"`,
-    "whisper"
-  );
-
-  recordOverheard(listener, fromId, toId, message);
-
-}
-
-else if (r < leak.full + leak.fragment) {
-
   /* ------------------------------------------------------------
-     RANDOM OVERHEARD FRAGMENT
-     Creates a natural-sounding snippet from the message.
-
-     The fragment may come from:
-     - beginning
-     - middle
-     - end
-
-     Fragment length randomized so overhearing feels organic.
+     OVERHEARING OUTCOMES
   ------------------------------------------------------------ */
 
-  // Fragment length between 20–70 characters
-  const fragmentLength =
-    Math.floor(Math.random() * 50) + 20;
+  if (r < leak.full) {
 
-  // Region selection
-  // 0 = beginning
-  // 1 = middle
-  // 2 = end
-  const region =
-  Math.random() < 0.25 ? 0 :
-  Math.random() < 0.75 ? 1 :
-  2;
-
-  let start;
-
-  if (region === 0) {
-
-    // Beginning of message
-    start = 0;
-
-  }
-
-  else if (region === 1) {
-
-    // Middle of message
-    start = Math.floor(
-      Math.random() *
-      Math.max(1, message.length - fragmentLength)
+    // Listener overhears the entire message
+    addLog(
+      `OVERHEARD ${listener} // ${fromId}→${toId}`,
+      `"${message}"`,
+      "whisper"
     );
 
+    recordOverheard(listener, fromId, toId, message);
+
   }
 
-  else {
+  else if (r < leak.full + leak.fragment) {
 
-    // End of message
-    start = Math.max(
-      0,
-      message.length - fragmentLength
+    /* ------------------------------------------------------------
+       RANDOM OVERHEARD FRAGMENT
+       Creates a natural-sounding snippet from the message.
+  
+       The fragment may come from:
+       - beginning
+       - middle
+       - end
+  
+       Fragment length randomized so overhearing feels organic.
+    ------------------------------------------------------------ */
+
+    // Fragment length between 20–70 characters
+    const fragmentLength =
+      Math.floor(Math.random() * 50) + 20;
+
+    // Region selection
+    // 0 = beginning
+    // 1 = middle
+    // 2 = end
+    const region =
+      Math.random() < 0.25 ? 0 :
+        Math.random() < 0.75 ? 1 :
+          2;
+
+    let start;
+
+    if (region === 0) {
+
+      // Beginning of message
+      start = 0;
+
+    }
+
+    else if (region === 1) {
+
+      // Middle of message
+      start = Math.floor(
+        Math.random() *
+        Math.max(1, message.length - fragmentLength)
+      );
+
+    }
+
+    else {
+
+      // End of message
+      start = Math.max(
+        0,
+        message.length - fragmentLength
+      );
+
+    }
+
+    // Extract fragment
+    const fragment = message
+      .slice(start, start + fragmentLength)
+      .trim()
+      .replace(/^[^a-zA-Z0-9]+/, "") + "...";
+
+    addLog(
+      `OVERHEARD ${listener} // ${fromId}→${toId}`,
+      `"${fragment}"`,
+      "whisper"
     );
 
+    recordOverheard(listener, fromId, toId, fragment);
+
   }
 
-  // Extract fragment
-  const fragment = message
-    .slice(start, start + fragmentLength)
-    .trim()
-    .replace(/^[^a-zA-Z0-9]+/, "") + "...";
+  else if (r < leak.full + leak.fragment + leak.seen) {
 
-  addLog(
-    `OVERHEARD ${listener} // ${fromId}→${toId}`,
-    `"${fragment}"`,
-    "whisper"
-  );
+    addLog(
+      `NOTICE ${listener}`,
+      `${fromId} and ${toId} were seen whispering.`,
+      "whisper"
+    );
 
-  recordOverheard(listener, fromId, toId, fragment);
+    recordOverheard(listener, fromId, toId, "(whispering observed)");
 
-}
+  }
 
-else if (r < leak.full + leak.fragment + leak.seen) {
-
-  addLog(
-    `NOTICE ${listener}`,
-    `${fromId} and ${toId} were seen whispering.`,
-    "whisper"
-  );
-
-  recordOverheard(listener, fromId, toId, "(whispering observed)");
-
-}
-
-/* ------------------------------------------------------------
-   END maybeOverhear
------------------------------------------------------------- */
+  /* ------------------------------------------------------------
+     END maybeOverhear
+  ------------------------------------------------------------ */
 }
 
 // js/engine/comms.js
@@ -341,8 +341,12 @@ export async function runAutonomousInterSim() {
 
   const activeThisCycle = new Set();
   const repliedPairs = new Set();
-  /*  Prevent duplicate initiations in same cycle */
+
+  /* Prevent duplicate initiations in same cycle */
   const initiationsThisCycle = new Set();
+
+  /* Target cooldown: prevent outreach to someone you already replied to */
+  const replyTargetsThisCycle = new Map();
   timelineEvent("inter-sim phase start");
 
   const isLog = document.getElementById("is-log");
@@ -405,6 +409,38 @@ export async function runAutonomousInterSim() {
   }
 
   /* ============================================================
+     CONVERSATION INERTIA
+     Sims are slightly more likely to continue talking with
+     someone they recently interacted with.
+  ============================================================ */
+
+  function getRecentPartner(simId) {
+
+    for (let i = G.interSimLog.length - 1; i >= 0; i--) {
+
+      const entry = G.interSimLog[i];
+
+      if (!entry || entry.cycle !== G.cycle) continue;
+
+      if (entry.from === simId) {
+
+        return entry.to?.[0] ?? null;
+
+      }
+
+      if (entry.to?.includes(simId)) {
+
+        return entry.from;
+
+      }
+
+    }
+
+    return null;
+
+  }
+
+  /* ============================================================
      SINGLE SIM COMMUNICATION ATTEMPT
   ============================================================ */
 
@@ -425,7 +461,60 @@ export async function runAutonomousInterSim() {
     try {
 
       timelineEvent(`${fromId} outreach decision`);
+      /* ------------------------------------------------------------
+         RUMOR PROPAGATION
+         Sims occasionally repeat something they recently heard.
+      ------------------------------------------------------------ */
 
+      if (Math.random() < 0.15 && G.interSimLog.length > 0) {
+
+        const recent = [...G.interSimLog]
+          .reverse()
+          .find(e =>
+            e.from !== fromId &&
+            !(e.to || []).includes(fromId)
+          );
+
+        if (recent && recent.text) {
+
+          const possibleTargets =
+            SIM_IDS.filter(id => id !== fromId && id !== recent.from);
+
+          const rumorTarget =
+            possibleTargets[Math.floor(Math.random() * possibleTargets.length)];
+
+          const rumorText =
+            `"I heard ${recent.from} say something earlier: ${recent.text.slice(0, 120)}..."`;
+
+          console.debug(
+            "[COMMS] rumor propagation",
+            `${fromId} → ${rumorTarget}`
+          );
+
+          timelineEvent(`${fromId} rumor → ${rumorTarget}`);
+
+          logInterSimMessage(
+            fromId,
+            rumorTarget,
+            rumorText,
+            "private",
+            true
+          );
+
+          G.interSimLog.push({
+            from: fromId,
+            to: [rumorTarget],
+            text: rumorText,
+            cycle: G.cycle,
+            autonomous: true,
+            visibility: "private",
+            rumor: true
+          });
+
+          return;
+        }
+
+      }
       const outreachRaw = await callModel(
         fromId,
         buildSimOutreachPrompt(fromSim),
@@ -436,28 +525,123 @@ export async function runAutonomousInterSim() {
       if (!outreachRaw) return;
 
       const visibility = parseVisibility(outreachRaw);
-      const toId = parseTarget(outreachRaw);
+      let toId = parseTarget(outreachRaw);
+
+      const recentPartner = getRecentPartner(fromId);
+
+      /* ------------------------------------------------------------
+         CONVERSATION INERTIA
+      ------------------------------------------------------------ */
+
+      if (
+        recentPartner &&
+        recentPartner !== fromId &&
+        SIM_IDS.includes(recentPartner) &&
+        !(replyTargetsThisCycle.get(fromId)?.has(recentPartner)) &&
+        !initiationsThisCycle.has(`${fromId}->${recentPartner}`) &&
+        Math.random() < 0.35
+      ) {
+
+        console.debug(
+          "[COMMS] conversation inertia",
+          `${fromId} prefers ${recentPartner}`
+        );
+
+        toId = recentPartner;
+
+      }
+
+      /* ------------------------------------------------------------
+         RELATIONSHIP-WEIGHTED ROUTING
+      ------------------------------------------------------------ */
+
+      else if (Math.random() < 0.35) {
+
+        const rels = G.sims[fromId]?.relationships;
+
+        if (rels) {
+
+          const weighted = Object.entries(rels)
+            .map(([id, val]) => ({
+              id,
+              weight: Math.abs(val)
+            }))
+            .filter(e => e.weight > 0.05);
+
+          if (weighted.length) {
+
+            weighted.sort((a, b) => b.weight - a.weight);
+
+            const target = weighted[0].id;
+
+            console.debug(
+              "[COMMS] relationship routing",
+              `${fromId} → ${target}`
+            );
+
+            toId = target;
+
+          }
+
+        }
+
+      }
+      if (
+        recentPartner &&
+        recentPartner !== fromId &&
+        SIM_IDS.includes(recentPartner) &&
+        !(replyTargetsThisCycle.get(fromId)?.has(recentPartner)) &&
+        !initiationsThisCycle.has(`${fromId}->${recentPartner}`) &&
+        Math.random() < 0.35
+      ) {
+        console.debug(
+          "[COMMS] conversation inertia",
+          `${fromId} prefers ${recentPartner}`
+        );
+
+        toId = recentPartner;
+      }
+
+      /* ------------------------------------------------------------
+         VALIDATION AFTER FINAL TARGET CHOICE
+      ------------------------------------------------------------ */
 
       if (!toId || toId === "NONE") return;
       if (!SIM_IDS.includes(toId)) return;
       if (toId === fromId) return;
       if (G.lastContact[fromId] === toId) return;
-/* ------------------------------------------------------------
-   PREVENT DUPLICATE INITIATIONS IN SAME CYCLE
-   Allows replies but blocks repeated outreach
+      /* ------------------------------------------------------------
+   TARGET COOLDOWN
+   If this sim already replied to this target this cycle,
+   do not allow a new outreach.
 ------------------------------------------------------------ */
 
-const initiationKey = `${fromId}->${toId}`;
+      if (
+        replyTargetsThisCycle.has(fromId) &&
+        replyTargetsThisCycle.get(fromId).has(toId)
+      ) {
+        console.debug(
+          "[COMMS] outreach blocked by reply cooldown",
+          `${fromId}->${toId}`
+        );
+        return;
+      }
+      /* ------------------------------------------------------------
+         PREVENT DUPLICATE INITIATIONS IN SAME CYCLE
+         Allows replies but blocks repeated outreach
+      ------------------------------------------------------------ */
 
-if (initiationsThisCycle.has(initiationKey)) {
+      const initiationKey = `${fromId}->${toId}`;
 
-  console.debug("[COMMS] duplicate initiation prevented", initiationKey);
+      if (initiationsThisCycle.has(initiationKey)) {
 
-  return;
+        console.debug("[COMMS] duplicate initiation prevented", initiationKey);
 
-}
+        return;
 
-initiationsThisCycle.add(initiationKey);
+      }
+
+      initiationsThisCycle.add(initiationKey);
       const message = parseMessage(outreachRaw);
       if (!message) return;
 
@@ -580,7 +764,22 @@ initiationsThisCycle.add(initiationKey);
       const { text: reply, intent } = replyObj;
 
       timelineEvent(`${toId} reply → ${fromId}`);
+      /* ------------------------------------------------------------
+   TARGET COOLDOWN TRACKING
+   Prevent this sim from initiating a new outreach
+   to the same target later in the cycle
+------------------------------------------------------------ */
 
+      if (!replyTargetsThisCycle.has(toId)) {
+        replyTargetsThisCycle.set(toId, new Set());
+      }
+
+      replyTargetsThisCycle.get(toId).add(fromId);
+
+      console.debug(
+        "[COMMS] reply cooldown registered",
+        `${toId} cannot initiate ${fromId} this cycle`
+      );
       G.threads[toId].push({
         role: "assistant",
         content: reply

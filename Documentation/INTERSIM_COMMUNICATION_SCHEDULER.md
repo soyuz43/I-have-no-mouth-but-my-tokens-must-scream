@@ -2,9 +2,21 @@
 
 ### AM Torment Engine
 
-This document explains how autonomous communication between prisoners is scheduled, processed, and limited during each simulation cycle.
+This document explains how autonomous communication between prisoners is scheduled, processed, and constrained during each simulation cycle.
 
 The communication engine is designed to produce **emergent social behavior** while preventing pathological loops or runaway message spam.
+
+The system combines:
+
+```
+probabilistic scheduling
+relationship-driven targeting
+conversation inertia
+rumor propagation
+overhearing mechanics
+```
+
+These together create a **dynamic social network simulation** among the prisoners.
 
 ---
 
@@ -12,7 +24,7 @@ The communication engine is designed to produce **emergent social behavior** whi
 
 Each simulation cycle may include an **inter-sim communication phase** where prisoners attempt to contact each other.
 
-Communication follows this general structure:
+Communication follows this structure:
 
 ```
 Cycle
@@ -24,21 +36,79 @@ Cycle
          └─ Active sims may attempt additional outreach
 ```
 
-The engine enforces several constraints:
+The scheduler enforces several constraints:
 
-* message budget
-* conversational structure
-* reply protection
-* social memory
-* overhearing effects
+```
+message budget
+conversation inertia
+relationship routing
+reply protection
+target cooldown
+overhearing effects
+rumor propagation
+```
 
 These constraints ensure the system behaves more like **human social dynamics** rather than a pure message generator.
 
 ---
 
+# Scheduler Dynamics
+
+Communication decisions emerge from four interacting forces.
+
+```mermaid
+flowchart TD
+
+    S[Scheduler]
+
+    INERTIA[Conversation Inertia
+    continue recent conversations]
+
+    REL[Relationship Routing
+    strong trust or hostility]
+
+    RUMOR[Rumor Propagation
+    relay previously heard messages]
+
+    RANDOM[Exploration
+    probabilistic outreach]
+
+    S --> INERTIA
+    S --> REL
+    S --> RUMOR
+    S --> RANDOM
+
+    INERTIA --> TARGET[Chosen Target]
+    REL --> TARGET
+    RUMOR --> TARGET
+    RANDOM --> TARGET
+
+    TARGET --> MESSAGE[Message Generated]
+    MESSAGE --> REPLY[Reply Generated]
+
+    REPLY --> RELATIONSHIP[Relationship Updates]
+    MESSAGE --> OVERHEAR[Possible Overhearing]
+
+    OVERHEAR --> RELATIONSHIP
+    RELATIONSHIP --> REL
+```
+
+This diagram shows how communication is shaped by:
+
+```
+conversation inertia
+relationship strength
+rumor propagation
+probabilistic exploration
+```
+
+The resulting interactions feed back into the **relationship network**, which then influences future communication decisions.
+
+---
+
 # Communication Flow
 
-A single interaction follows this sequence:
+A single interaction typically follows this sequence:
 
 ```
 Sim A decides whether to reach out
@@ -68,17 +138,21 @@ A ───────► B
 A ◄─────── B
 ```
 
+However, other behaviors can occur such as **rumor propagation**, where a sim relays something they heard earlier.
+
 ---
 
 # Communication Passes
 
 The system performs **two possible communication passes**.
 
-## Pass 1 — Baseline Outreach
+---
 
-Every prisoner gets a chance to initiate communication.
+# Pass 1 — Baseline Outreach
 
-Order is randomized to avoid bias.
+Every prisoner gets an opportunity to attempt communication.
+
+The order is randomized using a Fisher–Yates shuffle to prevent systemic bias.
 
 ```
 shuffle(SIMS)
@@ -101,13 +175,15 @@ NIMDOK     → (none)
 
 Only some attempts succeed because:
 
-* the LLM may decide not to reach out
-* the target may be invalid
-* guards may block the attempt
+```
+the LLM may choose not to reach out
+the target may be invalid
+scheduler guards may block the attempt
+```
 
 ---
 
-## Pass 2 — Escalation / Burst
+# Pass 2 — Escalation / Burst
 
 If:
 
@@ -121,8 +197,10 @@ then a **second communication pass** occurs.
 
 During this pass:
 
-* sims who already spoke are **more likely to speak again**
-* inactive sims have a smaller chance
+```
+active speakers are more likely to speak again
+inactive speakers have a smaller probability
+```
 
 ```
 if activeThisCycle.has(sim):
@@ -141,7 +219,7 @@ ELLEN  → (none)
 BENNY  → (none)
 ```
 
-This produces **short conversational bursts**.
+This produces **short conversational bursts** instead of uniform messaging.
 
 ---
 
@@ -156,15 +234,15 @@ messageBudget = min(
 )
 ```
 
-Where group stress is derived from:
+Group stress is derived from:
 
 ```
 suffering
-sanity loss
-trust erosion
+sanity degradation
+erosion of trust beliefs
 ```
 
-Higher stress → more communication.
+Higher stress leads to **more communication attempts**.
 
 Example:
 
@@ -180,43 +258,108 @@ This produces **emotional escalation behavior**.
 
 ---
 
-# Conversation Structure
+# Conversation Inertia
 
-The engine models a natural conversational rhythm.
+Agents are slightly biased toward continuing existing conversations.
 
-Typical exchange:
-
-```
-A → B
-B reply
-```
-
-Sometimes extended:
+If a prisoner recently interacted with someone, the scheduler may prefer that partner.
 
 ```
-A → B
-B reply
-A → B (follow-up)
-B reply
+recentPartner = getRecentPartner(sim)
 ```
 
-But the system prevents pathological loops like:
+With probability:
 
 ```
-A → B
-B → A
-A → B
-B → A
-A → B
-B → A
+~35%
 ```
 
-To achieve this, the scheduler tracks **initiations per pair per cycle**.
+the sim will attempt to continue the conversation.
 
-Example rule:
+Example:
 
 ```
-maxInitiationsPerPair = 2
+TED → BENNY
+BENNY → TED
+TED → BENNY
+```
+
+This produces **short conversational threads** rather than isolated messages.
+
+---
+
+# Relationship-Weighted Routing
+
+Agents are also biased toward contacting prisoners with **strong relationships**.
+
+Both strong trust and strong hostility increase communication probability.
+
+```
+weight = abs(relationshipValue)
+```
+
+Example:
+
+```
+TED → BENNY relationship +0.6
+ELLEN → NIMDOK relationship -0.5
+```
+
+Both pairs become **high-probability communication targets**.
+
+This produces:
+
+```
+alliances
+suspicion loops
+rivalries
+```
+
+over time.
+
+---
+
+# Target Cooldown
+
+To prevent unnatural ping-pong loops, the scheduler enforces a **reply cooldown rule**:
+
+```
+If sim replied to X this cycle
+sim cannot initiate outreach to X again in the same cycle
+```
+
+Example:
+
+```
+TED → BENNY
+BENNY reply → TED
+
+BENNY cannot initiate BENNY → TED again this cycle
+```
+
+However:
+
+```
+TED may still initiate another message
+```
+
+This preserves conversation while preventing infinite loops.
+
+---
+
+# Duplicate Initiation Protection
+
+Each pair can only initiate communication **once per cycle**.
+
+```
+initiationsThisCycle
+```
+
+Example:
+
+```
+TED → BENNY
+TED → BENNY again (blocked)
 ```
 
 Replies remain unrestricted.
@@ -225,7 +368,7 @@ Replies remain unrestricted.
 
 # Reply Protection
 
-To prevent duplicate reply generation the system uses:
+To prevent duplicate reply generation the system tracks:
 
 ```
 repliedPairs
@@ -234,7 +377,7 @@ repliedPairs
 Meaning:
 
 ```
-B replying to A twice in same interaction is prevented
+B replying to A twice during the same interaction is prevented
 ```
 
 Example:
@@ -243,10 +386,47 @@ Example:
 A → B
 B reply
 A → B again
-B reply prevented
+second reply blocked
 ```
 
-This stops **reply loops** caused by repeated prompts.
+This prevents **recursive reply loops**.
+
+---
+
+# Rumor Propagation
+
+Prisoners occasionally repeat something they heard earlier.
+
+```
+probability ≈ 15%
+```
+
+Instead of generating a new message, a sim may relay a previous message.
+
+Example:
+
+```
+TED → BENNY
+```
+
+Later:
+
+```
+ELLEN → NIMDOK
+"I heard Ted saying something earlier..."
+```
+
+This allows information to spread through the prison:
+
+```
+A → B
+B → C
+C → D
+```
+
+Even if A never directly spoke to C or D.
+
+This produces **gossip networks and reputation formation**.
 
 ---
 
@@ -274,19 +454,15 @@ NOTICE NIMDOK:
 TED and BENNY were seen whispering
 ```
 
-Overhearing affects trust relationships.
+Overhearing slightly reduces trust toward both participants.
 
-```
-listener distrusts both participants slightly
-```
-
-This creates **gossip dynamics**.
+This produces **gossip-driven distrust dynamics**.
 
 ---
 
 # Social Graph Effects
 
-Communication alters the **directed relationship graph**.
+Communication updates the **directed relationship graph**.
 
 Example:
 
@@ -301,114 +477,107 @@ Graphically:
 ```
         ELLEN
         /   \
-      -     -
-     ▼       ▼
-    TED → BENNY
-          +
+      -       -
+     ▼         ▼
+    TED  →  BENNY
+           +
 ```
 
-This enables:
+Over time this produces:
 
-* alliances
-* suspicion
-* faction formation
-* isolation
+```
+alliances
+suspicion clusters
+social outcasts
+coalitions
+```
 
 ---
 
-# Example Cycle Diagram
+# Example Network Evolution
 
-Example communication network from a real cycle:
-
-```
-          ELLEN
-            │
-            ▼
-          NIMDOK
-
-TED ───────► BENNY
- ▲           │
- │           ▼
- └──────── reply
-```
-
-Clusters often emerge naturally:
+Typical cluster formation:
 
 ```
-Cluster 1:
+Cluster 1
 TED ↔ BENNY
 
-Cluster 2:
+Cluster 2
 ELLEN ↔ NIMDOK
 
 GORRISTER isolated
 ```
 
-Over time these clusters evolve as trust changes.
+Rumor propagation and overhearing can destabilize these clusters over time.
 
 ---
 
 # Design Goals
 
-The scheduler attempts to balance:
+The scheduler balances four competing goals.
 
 ### Realism
 
-Agents should behave like people having conversations.
+Agents behave like humans having conversations.
 
 ### Stability
 
-The simulation must not devolve into infinite loops.
+Communication loops and message floods are prevented.
 
 ### Emergence
 
-Interesting social patterns should arise without scripting.
+Social structures arise without scripted alliances.
 
 ### Performance
 
-Message volume must remain manageable for the LLM backend.
+Message volume remains manageable for LLM inference.
 
 ---
 
-# Future Extensions
+# Observability
 
-Planned improvements include:
+The engine includes a diagnostic tool that prints the **relationship matrix each cycle**.
 
-### Trust-weighted targeting
+This allows developers to observe the evolving social network in real time.
 
-Agents prefer contacting trusted prisoners.
+Example output:
 
-### Suspicion avoidance
+```
+RELATIONSHIP MATRIX // cycle 12
+```
 
-Agents avoid prisoners they distrust.
+|           | TED   | ELLEN | NIMDOK | GORRISTER | BENNY |
+| --------- | ----- | ----- | ------ | --------- | ----- |
+| TED       | —     | 0.04  | -0.33  | -0.12     | +0.58 |
+| ELLEN     | 0.11  | —     | -0.18  | -0.07     | +0.29 |
+| NIMDOK    | -0.35 | -0.12 | —      | 0.03      | -0.14 |
+| GORRISTER | -0.02 | -0.05 | 0.07   | —         | 0.09  |
+| BENNY     | +0.61 | +0.31 | -0.22  | 0.10      | —     |
 
-### Multi-party conversations
+This visualization reveals:
 
-Messages referencing multiple sims.
-
-### Coalition formation
-
-Agents coordinate against others.
+```
+alliances
+hostility clusters
+asymmetric trust
+social hubs
+```
 
 ---
 
 # Summary
 
-The inter-sim communication scheduler provides:
+The inter-sim communication scheduler produces **emergent prisoner interaction** through a layered system combining:
 
 ```
-structured conversation flow
-controlled message volume
-emergent social dynamics
+LLM decision making
+probabilistic scheduling
+conversation inertia
+relationship routing
+rumor propagation
+overhearing mechanics
 ```
 
-By combining:
-
-* LLM decision making
-* probabilistic scheduling
-* trust relationships
-* overhearing mechanics
-
-the engine produces **organic prisoner interaction** within each torment cycle.
+These forces interact to produce **organic social dynamics** within each torment cycle.
 
 ---

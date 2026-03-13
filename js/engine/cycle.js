@@ -15,12 +15,6 @@ import { SIM_IDS } from "../core/constants.js";
 import { timelineEvent } from "../ui/timeline.js";
 import { runAssessment } from "./analysis/assessment.js";
 import { runTacticEvolution } from "./analysis/tacticEvolution.js";
-import {
-  escapeHtml,
-  formatReason,
-  formatBeliefDetails,
-  fmtDelta,
-} from "../core/utils.js";
 
 import { buildAMPlanningPrompt, buildAMPrompt } from "../prompts/am.js";
 import { buildSimJournalPrompt } from "../prompts/journal.js";
@@ -55,6 +49,8 @@ import {
 } from "../ui/render.js";
 import { renderRelationships } from "../ui/relationships.js";
 import { runBeliefContagion } from "./social/beliefContagion.js";
+import { printRelationshipMatrix }
+  from "./analysis/relationshipMatrix.js";
 /* ============================================================
    MAIN CYCLE CONTROLLER
    ============================================================ */
@@ -234,6 +230,13 @@ export async function runCycle() {
 
     stepFinalizeCycle();
     renderRelationships();
+
+    /* ------------------------------------------------------------
+       RELATIONSHIP MATRIX DEBUG
+       Prints full social trust network for this cycle
+    ------------------------------------------------------------ */
+
+    printRelationshipMatrix();
 
     timelineEvent(`// STATE SNAPSHOT STORED`);
 
